@@ -77,3 +77,7 @@ finance-api/
 │   └── test_main.py
 ├── .gitignore
 └── README.md
+
+## Author
+
+Amro Taha
