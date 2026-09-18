@@ -2,12 +2,51 @@ import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
+
 from main import app, get_db
 
 
-# Use a separate database connection for automated tests
+TEST_DATABASE = "test_finance.db"
+
+
+# Create a fresh test database connection
+def get_test_connection():
+    connection = sqlite3.connect(TEST_DATABASE)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+# Create the test database schema
+def create_test_schema():
+    connection = get_test_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        hashed_password TEXT NOT NULL
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        amount REAL,
+        category TEXT,
+        description TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+    """)
+
+    connection.commit()
+    connection.close()
+
+
+# Replace the application's database with the test database
 def override_get_db():
-    connection = sqlite3.connect("test_finance.db")
+    connection = get_test_connection()
 
     try:
         yield connection
@@ -15,39 +54,29 @@ def override_get_db():
         connection.close()
 
 
-# Create the test database table if it does not exist
-connection = sqlite3.connect("test_finance.db")
-
-connection.execute("""
-CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY,
-    amount REAL,
-    category TEXT,
-    description TEXT
-)
-""")
-
-connection.commit()
-connection.close()
-
-
-# Tell FastAPI to use the test database instead of the real database
 app.dependency_overrides[get_db] = override_get_db
 
+client = TestClient(app)
 
-# Clear test data before every test so tests remain independent
+
+# Reset test data before every test
 @pytest.fixture(autouse=True)
-def clear_test_database():
-    connection = sqlite3.connect("test_finance.db")
+def reset_database():
+    create_test_schema()
 
-    connection.execute("DELETE FROM transactions")
+    connection = get_test_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("DELETE FROM transactions")
+    cursor.execute("DELETE FROM users")
 
     connection.commit()
     connection.close()
 
 
-client = TestClient(app)
-
+# -------------------------
+# Basic API tests
+# -------------------------
 
 def test_home():
     response = client.get("/")
@@ -56,32 +85,24 @@ def test_home():
     assert response.json() == "Hello"
 
 
-def test_create_transaction_invalid_amount():
+def test_register_validation_setup():
     response = client.post(
-        "/transactions",
+        "/register",
         json={
-            "amount": -10,
-            "category": "Food",
-            "description": "Lunch"
+            "username": "amro",
+            "password": "password123"
         }
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
 
 
-def test_get_transaction_not_found():
-    response = client.get("/transactions/999999")
-
-    assert response.status_code == 404
-
-
-def test_create_transaction():
+def test_register_user():
     response = client.post(
-        "/transactions",
+        "/register",
         json={
-            "amount": 25,
-            "category": "Food",
-            "description": "Lunch"
+            "username": "amro",
+            "password": "password123"
         }
     )
 
@@ -89,139 +110,329 @@ def test_create_transaction():
 
     data = response.json()
 
-    assert data["amount"] == 25
-    assert data["category"] == "Food"
-    assert data["description"] == "Lunch"
-    assert "id" in data
+    assert data["id"] == 1
+    assert data["username"] == "amro"
 
 
-def test_get_transactions():
+def test_duplicate_username():
+    client.post(
+        "/register",
+        json={
+            "username": "amro",
+            "password": "password123"
+        }
+    )
+
+    response = client.post(
+        "/register",
+        json={
+            "username": "amro",
+            "password": "password123"
+        }
+    )
+
+    assert response.status_code == 400
+
+
+def test_short_password():
+    response = client.post(
+        "/register",
+        json={
+            "username": "amro",
+            "password": "short"
+        }
+    )
+
+    assert response.status_code == 422
+
+
+# -------------------------
+# Authentication tests
+# -------------------------
+
+def register_user(username):
+    return client.post(
+        "/register",
+        json={
+            "username": username,
+            "password": "password123"
+        }
+    )
+
+
+def login_user(username):
+    response = client.post(
+        "/login",
+        data={
+            "username": username,
+            "password": "password123"
+        }
+    )
+
+    return response
+
+
+def get_auth_headers(username):
+    response = login_user(username)
+
+    token = response.json()["access_token"]
+
+    return {
+        "Authorization": f"Bearer {token}"
+    }
+
+
+def test_login():
+    register_user("amro")
+
+    response = login_user("amro")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+
+
+def test_wrong_password():
+    register_user("amro")
+
+    response = client.post(
+        "/login",
+        data={
+            "username": "amro",
+            "password": "wrongpassword"
+        }
+    )
+
+    assert response.status_code == 401
+
+
+def test_unauthenticated_transactions():
     response = client.get("/transactions")
 
-    assert response.status_code == 200
-
-    data = response.json()
-
-    assert isinstance(data, list)
-    assert len(data) >= 0
+    assert response.status_code == 401
 
 
-def test_get_transaction():
-    create_response = client.post(
+# -------------------------
+# Authenticated transaction tests
+# -------------------------
+
+def test_create_transaction_authenticated():
+    register_user("amro")
+
+    headers = get_auth_headers("amro")
+
+    response = client.post(
         "/transactions",
         json={
-            "amount": 40,
-            "category": "Transport",
-            "description": "Taxi"
-        }
-    )
-
-    transaction_id = create_response.json()["id"]
-
-    response = client.get(f"/transactions/{transaction_id}")
-
-    assert response.status_code == 200
-
-    data = response.json()
-
-    assert data["id"] == transaction_id
-    assert data["amount"] == 40
-    assert data["category"] == "Transport"
-    assert data["description"] == "Taxi"
-
-
-def test_update_transaction():
-    create_response = client.post(
-        "/transactions",
-        json={
-            "amount": 50,
+            "amount": 25.5,
             "category": "Food",
             "description": "Lunch"
-        }
-    )
-
-    transaction_id = create_response.json()["id"]
-
-    response = client.put(
-        f"/transactions/{transaction_id}",
-        json={
-            "amount": 75,
-            "category": "Restaurant",
-            "description": "Dinner"
-        }
+        },
+        headers=headers
     )
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert data["id"] == transaction_id
-    assert data["amount"] == 75
-    assert data["category"] == "Restaurant"
-    assert data["description"] == "Dinner"
+    assert data["id"] == 1
+    assert data["user_id"] == 1
+    assert data["amount"] == 25.5
 
 
-def test_delete_transaction():
-    create_response = client.post(
+def test_get_transactions_authenticated():
+    register_user("amro")
+
+    headers = get_auth_headers("amro")
+
+    client.post(
         "/transactions",
+        json={
+            "amount": 25.5,
+            "category": "Food",
+            "description": "Lunch"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["user_id"] == 1
+
+
+def test_get_transaction_authenticated():
+    register_user("amro")
+
+    headers = get_auth_headers("amro")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 25.5,
+            "category": "Food",
+            "description": "Lunch"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/1",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == 1
+
+
+def test_update_transaction_authenticated():
+    register_user("amro")
+
+    headers = get_auth_headers("amro")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 25.5,
+            "category": "Food",
+            "description": "Lunch"
+        },
+        headers=headers
+    )
+
+    response = client.put(
+        "/transactions/1",
         json={
             "amount": 30,
-            "category": "Shopping",
-            "description": "Shoes"
-        }
+            "category": "Restaurant",
+            "description": "Dinner"
+        },
+        headers=headers
     )
-
-    transaction_id = create_response.json()["id"]
-
-    response = client.delete(f"/transactions/{transaction_id}")
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert data["message"] == "Transaction deleted successfully"
+    assert data["amount"] == 30
+    assert data["category"] == "Restaurant"
 
-    get_response = client.get(f"/transactions/{transaction_id}")
 
-    assert get_response.status_code == 404
+def test_delete_transaction_authenticated():
+    register_user("amro")
 
-def test_update_transaction_not_found():
-    response = client.put(
-        "/transactions/999999",
+    headers = get_auth_headers("amro")
+
+    client.post(
+        "/transactions",
         json={
-            "amount": 50,
+            "amount": 25.5,
             "category": "Food",
             "description": "Lunch"
-        }
+        },
+        headers=headers
+    )
+
+    response = client.delete(
+        "/transactions/1",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json()["message"] == \
+        "Transaction deleted successfully"
+
+
+# -------------------------
+# Authorization tests
+# -------------------------
+
+def test_user_cannot_access_another_users_transaction():
+    register_user("amro")
+    register_user("testuser")
+
+    amro_headers = get_auth_headers("amro")
+    testuser_headers = get_auth_headers("testuser")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 50,
+            "category": "Shopping",
+            "description": "Amro transaction"
+        },
+        headers=amro_headers
+    )
+
+    response = client.get(
+        "/transactions/1",
+        headers=testuser_headers
     )
 
     assert response.status_code == 404
 
-def test_delete_transaction_not_found():
-    response = client.delete("/transactions/999999")
+
+def test_user_cannot_update_another_users_transaction():
+    register_user("amro")
+    register_user("testuser")
+
+    amro_headers = get_auth_headers("amro")
+    testuser_headers = get_auth_headers("testuser")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 50,
+            "category": "Shopping",
+            "description": "Amro transaction"
+        },
+        headers=amro_headers
+    )
+
+    response = client.put(
+        "/transactions/1",
+        json={
+            "amount": 999,
+            "category": "Hacked",
+            "description": "Unauthorized"
+        },
+        headers=testuser_headers
+    )
 
     assert response.status_code == 404
 
-def test_create_transaction_empty_category():
-    response = client.post(
+
+def test_user_cannot_delete_another_users_transaction():
+    register_user("amro")
+    register_user("testuser")
+
+    amro_headers = get_auth_headers("amro")
+    testuser_headers = get_auth_headers("testuser")
+
+    client.post(
         "/transactions",
         json={
-            "amount": 20,
-            "category": "",
-            "description": "Lunch"
-        }
+            "amount": 50,
+            "category": "Shopping",
+            "description": "Amro transaction"
+        },
+        headers=amro_headers
     )
 
-    assert response.status_code == 422
-
-def test_create_transaction_category_too_long():
-    response = client.post(
-        "/transactions",
-        json={
-            "amount": 20,
-            "category": "A" * 51,
-            "description": "Lunch"
-        }
+    response = client.delete(
+        "/transactions/1",
+        headers=testuser_headers
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 404

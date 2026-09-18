@@ -2,19 +2,32 @@ import sqlite3
 
 
 def get_connection():
-    return sqlite3.connect("finance.db")
+    connection = sqlite3.connect("finance.db")
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
 
 
-# Create the transactions table if it does not already exist
 connection = get_connection()
 cursor = connection.cursor()
 
+# Create the users table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL
+)
+""")
+
+# Create the transactions table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
     amount REAL,
     category TEXT,
-    description TEXT
+    description TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 )
 """)
 
@@ -22,53 +35,111 @@ connection.commit()
 connection.close()
 
 
-def create_transaction(amount, category, description, connection):
-
+# Create a new user and return the generated user ID
+def create_user(username, hashed_password, connection):
     cursor = connection.cursor()
 
     cursor.execute("""
-        INSERT INTO transactions (amount, category, description)
-        VALUES (?, ?, ?)
-    """, (amount, category, description))
+        INSERT INTO users (username, hashed_password)
+        VALUES (?, ?)
+    """, (username, hashed_password))
 
     connection.commit()
 
-    transaction_id = cursor.lastrowid
-
-    
-
-    return transaction_id
+    return cursor.lastrowid
 
 
-def get_all_transactions(connection):
+# Find a user by username
+def get_user_by_username(username, connection):
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT id, amount, category, description
-        FROM transactions
-    """)
+        SELECT id, username, hashed_password
+        FROM users
+        WHERE username = ?
+    """, (username,))
 
-    rows = cursor.fetchall()
+    return cursor.fetchone()
 
-    return rows
-
-
-def get_transaction_by_id(transaction_id, connection):
+# Find a user by their ID
+def get_user_by_id(user_id, connection):
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT id, amount, category, description
-        FROM transactions
+        SELECT id, username, hashed_password
+        FROM users
         WHERE id = ?
-    """, (transaction_id,))
+    """, (user_id,))
 
-    row = cursor.fetchone()
+    return cursor.fetchone()
+    
+# Create a transaction for a specific user
+def create_transaction(
+    user_id,
+    amount,
+    category,
+    description,
+    connection
+):
+    cursor = connection.cursor()
 
-    return row
+    cursor.execute("""
+        INSERT INTO transactions (
+            user_id,
+            amount,
+            category,
+            description
+        )
+        VALUES (?, ?, ?, ?)
+    """, (
+        user_id,
+        amount,
+        category,
+        description
+    ))
+
+    connection.commit()
+
+    return cursor.lastrowid
 
 
+# Get all transactions belonging to a specific user
+def get_all_transactions(user_id, connection):
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, amount, category, description
+        FROM transactions
+        WHERE user_id = ?
+    """, (user_id,))
+
+    return cursor.fetchall()
+
+
+# Get one transaction belonging to a specific user
+def get_transaction_by_id(
+    transaction_id,
+    user_id,
+    connection
+):
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, amount, category, description
+        FROM transactions
+        WHERE id = ? AND user_id = ?
+    """, (
+        transaction_id,
+        user_id
+    ))
+
+    return cursor.fetchone()
+
+
+# Update a transaction belonging to a specific user
 def update_transaction(
     transaction_id,
+    user_id,
     amount,
     category,
     description,
@@ -79,35 +150,36 @@ def update_transaction(
     cursor.execute("""
         UPDATE transactions
         SET amount = ?, category = ?, description = ?
-        WHERE id = ?
+        WHERE id = ? AND user_id = ?
     """, (
         amount,
         category,
         description,
-        transaction_id
+        transaction_id,
+        user_id
     ))
 
     connection.commit()
 
-    rows_updated = cursor.rowcount
-
-    return rows_updated
+    return cursor.rowcount
 
 
-def delete_transaction(transaction_id, connection):
-    
+# Delete a transaction belonging to a specific user
+def delete_transaction(
+    transaction_id,
+    user_id,
+    connection
+):
     cursor = connection.cursor()
 
     cursor.execute("""
         DELETE FROM transactions
-        WHERE id = ?
-    """, (transaction_id,))
+        WHERE id = ? AND user_id = ?
+    """, (
+        transaction_id,
+        user_id
+    ))
 
     connection.commit()
 
-    rows_deleted = cursor.rowcount
-
-    
-
-    return rows_deleted
-
+    return cursor.rowcount
