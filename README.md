@@ -81,3 +81,7 @@ finance-api/
 ## Author
 
 Amro Taha
+
+## Development
+
+This project is currently being developed as part of my backend learning journey.
