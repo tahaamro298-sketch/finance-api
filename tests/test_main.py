@@ -85,16 +85,22 @@ def test_home():
     assert response.json() == "Hello"
 
 
-def test_register_validation_setup():
+def test_invalid_transaction_amount():
+    register_user("amro")
+
+    headers = get_auth_headers("amro")
+
     response = client.post(
-        "/register",
+        "/transactions",
         json={
-            "username": "amro",
-            "password": "password123"
-        }
+            "amount": 0,
+            "category": "Food",
+            "description": "Invalid amount"
+        },
+        headers=headers
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 422
 
 
 def test_register_user():
@@ -106,7 +112,7 @@ def test_register_user():
         }
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     data = response.json()
 
@@ -234,7 +240,7 @@ def test_create_transaction_authenticated():
         headers=headers
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     data = response.json()
 
