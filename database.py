@@ -7,10 +7,10 @@ def get_connection():
     return connection
 
 
+# Create the database tables
 connection = get_connection()
 cursor = connection.cursor()
 
-# Create the users table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# Create the transactions table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY,
@@ -27,6 +26,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount REAL,
     category TEXT,
     description TEXT,
+    transaction_type TEXT NOT NULL,
+    transaction_date TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 )
 """)
@@ -35,21 +36,26 @@ connection.commit()
 connection.close()
 
 
-# Create a new user and return the generated user ID
+# -------------------------
+# User database operations
+# -------------------------
+
 def create_user(username, hashed_password, connection):
     cursor = connection.cursor()
 
     cursor.execute("""
         INSERT INTO users (username, hashed_password)
         VALUES (?, ?)
-    """, (username, hashed_password))
+    """, (
+        username,
+        hashed_password
+    ))
 
     connection.commit()
 
     return cursor.lastrowid
 
 
-# Find a user by username
 def get_user_by_username(username, connection):
     cursor = connection.cursor()
 
@@ -61,7 +67,7 @@ def get_user_by_username(username, connection):
 
     return cursor.fetchone()
 
-# Find a user by their ID
+
 def get_user_by_id(user_id, connection):
     cursor = connection.cursor()
 
@@ -72,13 +78,19 @@ def get_user_by_id(user_id, connection):
     """, (user_id,))
 
     return cursor.fetchone()
-    
-# Create a transaction for a specific user
+
+
+# -------------------------
+# Transaction database operations
+# -------------------------
+
 def create_transaction(
     user_id,
     amount,
     category,
     description,
+    transaction_type,
+    transaction_date,
     connection
 ):
     cursor = connection.cursor()
@@ -88,14 +100,18 @@ def create_transaction(
             user_id,
             amount,
             category,
-            description
+            description,
+            transaction_type,
+            transaction_date
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         user_id,
         amount,
         category,
-        description
+        description,
+        transaction_type,
+        transaction_date
     ))
 
     connection.commit()
@@ -103,20 +119,62 @@ def create_transaction(
     return cursor.lastrowid
 
 
-# Get all transactions belonging to a specific user
-def get_all_transactions(user_id, connection):
+def get_all_transactions(
+    user_id,
+    connection,
+    transaction_type=None,
+    category=None,
+    date_from=None,
+    date_to=None
+):
     cursor = connection.cursor()
 
-    cursor.execute("""
-        SELECT id, user_id, amount, category, description
+    query = """
+        SELECT
+            id,
+            user_id,
+            amount,
+            category,
+            description,
+            transaction_type,
+            transaction_date
         FROM transactions
         WHERE user_id = ?
-    """, (user_id,))
+    """
+
+    parameters = [user_id]
+
+    # Add an optional transaction-type filter
+    if transaction_type is not None:
+        query += " AND transaction_type = ?"
+        parameters.append(transaction_type)
+
+    # Add an optional category filter
+    if category is not None:
+        query += " AND category = ?"
+        parameters.append(category)
+
+    # Add an optional start-date filter
+    if date_from is not None:
+        query += " AND transaction_date >= ?"
+        parameters.append(date_from.isoformat())
+
+    # Add an optional end-date filter
+    if date_to is not None:
+        query += " AND transaction_date <= ?"
+        parameters.append(date_to.isoformat())
+
+    # Return newest transactions first
+    query += " ORDER BY transaction_date DESC, id DESC"
+
+    cursor.execute(
+        query,
+        parameters
+    )
 
     return cursor.fetchall()
 
 
-# Get one transaction belonging to a specific user
 def get_transaction_by_id(
     transaction_id,
     user_id,
@@ -125,7 +183,14 @@ def get_transaction_by_id(
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT id, user_id, amount, category, description
+        SELECT
+            id,
+            user_id,
+            amount,
+            category,
+            description,
+            transaction_type,
+            transaction_date
         FROM transactions
         WHERE id = ? AND user_id = ?
     """, (
@@ -136,25 +201,33 @@ def get_transaction_by_id(
     return cursor.fetchone()
 
 
-# Update a transaction belonging to a specific user
 def update_transaction(
     transaction_id,
     user_id,
     amount,
     category,
     description,
+    transaction_type,
+    transaction_date,
     connection
 ):
     cursor = connection.cursor()
 
     cursor.execute("""
         UPDATE transactions
-        SET amount = ?, category = ?, description = ?
+        SET
+            amount = ?,
+            category = ?,
+            description = ?,
+            transaction_type = ?,
+            transaction_date = ?
         WHERE id = ? AND user_id = ?
     """, (
         amount,
         category,
         description,
+        transaction_type,
+        transaction_date,
         transaction_id,
         user_id
     ))
@@ -164,7 +237,6 @@ def update_transaction(
     return cursor.rowcount
 
 
-# Delete a transaction belonging to a specific user
 def delete_transaction(
     transaction_id,
     user_id,
@@ -183,3 +255,28 @@ def delete_transaction(
     connection.commit()
 
     return cursor.rowcount
+
+def get_transaction_summary(user_id, connection):
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(CASE
+                WHEN transaction_type = 'income'
+                THEN amount
+                ELSE 0
+            END), 0),
+
+            COALESCE(SUM(CASE
+                WHEN transaction_type = 'expense'
+                THEN amount
+                ELSE 0
+            END), 0),
+
+            COUNT(*)
+
+        FROM transactions
+        WHERE user_id = ?
+    """, (user_id,))
+
+    return cursor.fetchone()

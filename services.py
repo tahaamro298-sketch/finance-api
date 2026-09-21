@@ -5,7 +5,8 @@ from database import (
     get_all_transactions,
     get_transaction_by_id,
     update_transaction,
-    delete_transaction
+    delete_transaction,
+    get_transaction_summary
 )
 
 from auth import (
@@ -17,16 +18,8 @@ from auth import (
 from models import Transaction
 
 
-# Register a new user
-def register_user(
-    username,
-    password,
-    connection
-):
-    existing_user = get_user_by_username(
-        username,
-        connection
-    )
+def register_user(username, password, connection):
+    existing_user = get_user_by_username(username, connection)
 
     if existing_user is not None:
         return None
@@ -42,12 +35,7 @@ def register_user(
     return user_id
 
 
-# Authenticate a user and create an access token
-def authenticate_user(
-    username,
-    password,
-    connection
-):
+def authenticate_user(username, password, connection):
     user = get_user_by_username(
         username,
         connection
@@ -56,32 +44,31 @@ def authenticate_user(
     if user is None:
         return None
 
-    if not verify_password(
-        password,
-        user[2]
-    ):
+    if not verify_password(password, user[2]):
         return None
 
     return create_access_token(user[0])
 
 
-# Convert a database row into a Transaction response
 def transaction_from_row(row):
     return Transaction(
         id=row[0],
         user_id=row[1],
         amount=row[2],
         category=row[3],
-        description=row[4]
+        description=row[4],
+        transaction_type=row[5],
+        transaction_date=row[6]
     )
 
 
-# Create a transaction for a user
 def create_user_transaction(
     user_id,
     amount,
     category,
     description,
+    transaction_type,
+    transaction_date,
     connection
 ):
     transaction_id = create_transaction(
@@ -89,6 +76,8 @@ def create_user_transaction(
         amount,
         category,
         description,
+        transaction_type,
+        transaction_date.isoformat(),
         connection
     )
 
@@ -101,14 +90,21 @@ def create_user_transaction(
     return transaction_from_row(row)
 
 
-# Get all transactions for a user
 def get_user_transactions(
     user_id,
-    connection
+    connection,
+    transaction_type=None,
+    category=None,
+    date_from=None,
+    date_to=None
 ):
     rows = get_all_transactions(
         user_id,
-        connection
+        connection,
+        transaction_type,
+        category,
+        date_from,
+        date_to
     )
 
     return [
@@ -117,7 +113,6 @@ def get_user_transactions(
     ]
 
 
-# Get one transaction for a user
 def get_user_transaction(
     transaction_id,
     user_id,
@@ -135,13 +130,14 @@ def get_user_transaction(
     return transaction_from_row(row)
 
 
-# Update a user's transaction
 def update_user_transaction(
     transaction_id,
     user_id,
     amount,
     category,
     description,
+    transaction_type,
+    transaction_date,
     connection
 ):
     rows_updated = update_transaction(
@@ -150,6 +146,8 @@ def update_user_transaction(
         amount,
         category,
         description,
+        transaction_type,
+        transaction_date.isoformat(),
         connection
     )
 
@@ -165,7 +163,6 @@ def update_user_transaction(
     return transaction_from_row(row)
 
 
-# Delete a user's transaction
 def delete_user_transaction(
     transaction_id,
     user_id,
@@ -176,3 +173,23 @@ def delete_user_transaction(
         user_id,
         connection
     )
+
+
+def get_user_summary(user_id, connection):
+    row = get_transaction_summary(
+        user_id,
+        connection
+    )
+
+    total_income = row[0]
+    total_expenses = row[1]
+    transaction_count = row[2]
+
+    balance = total_income - total_expenses
+
+    return {
+        "total_income": total_income,
+        "total_expenses": total_expenses,
+        "balance": balance,
+        "transaction_count": transaction_count
+    }

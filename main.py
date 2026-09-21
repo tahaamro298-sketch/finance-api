@@ -1,15 +1,6 @@
+from datetime import date
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-
-from services import (
-    register_user,
-    authenticate_user,
-    create_user_transaction,
-    get_user_transactions,
-    get_user_transaction,
-    update_user_transaction,
-    delete_user_transaction
-)
 
 from dependencies import (
     get_db,
@@ -22,15 +13,19 @@ from models import (
     Token,
     TransactionCreate,
     Transaction,
-    DeleteResponse
+    DeleteResponse,
+    Summary
 )
 
 from services import (
+    register_user,
+    authenticate_user,
     create_user_transaction,
     get_user_transactions,
     get_user_transaction,
     update_user_transaction,
-    delete_user_transaction
+    delete_user_transaction,
+    get_user_summary
 )
 
 
@@ -68,6 +63,7 @@ def register_user_endpoint(
         id=user_id,
         username=user.username
     )
+
 
 # Log in a user and return a JWT access token
 @app.post("/login", response_model=Token)
@@ -109,22 +105,40 @@ def create_transaction_endpoint(
         transaction.amount,
         transaction.category,
         transaction.description,
+        transaction.transaction_type,
+        transaction.transaction_date,
         connection
     )
 
 
-# Get only the authenticated user's transactions
+# Get the authenticated user's transactions with optional filters
 @app.get("/transactions", response_model=list[Transaction])
 def get_transactions(
+    transaction_type: str | None = None,
+    category: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
     return get_user_transactions(
         current_user[0],
-        connection
+        connection,
+        transaction_type,
+        category,
+        date_from,
+        date_to
     )
 
-
+@app.get("/transactions/summary", response_model=Summary)
+def get_transactions_summary(
+    current_user=Depends(get_current_user),
+    connection=Depends(get_db)
+):
+    return get_user_summary(
+        current_user[0],
+        connection
+    )
 # Get one transaction belonging to the authenticated user
 @app.get(
     "/transactions/{transaction_id}",
@@ -167,6 +181,8 @@ def update_transaction_endpoint(
         transaction.amount,
         transaction.category,
         transaction.description,
+        transaction.transaction_type,
+        transaction.transaction_date,
         connection
     )
 
