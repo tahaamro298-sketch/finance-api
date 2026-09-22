@@ -1,0 +1,9 @@
+.venv
+__pycache__
+.pytest_cache
+.git
+.gitignore
+.env
+finance.db
+test_finance.db
+tests
