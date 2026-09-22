@@ -1,4 +1,5 @@
 import sqlite3
+from migrations import run_migrations
 
 
 def get_connection():
@@ -7,33 +8,16 @@ def get_connection():
     return connection
 
 
-# Create the database tables
-connection = get_connection()
-cursor = connection.cursor()
+def initialize_database():
+    connection = get_connection()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    hashed_password TEXT NOT NULL
-)
-""")
+    try:
+        run_migrations(connection)
+    finally:
+        connection.close()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    amount REAL,
-    category TEXT,
-    description TEXT,
-    transaction_type TEXT NOT NULL,
-    transaction_date TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-)
-""")
 
-connection.commit()
-connection.close()
+initialize_database()
 
 
 # -------------------------
@@ -255,6 +239,7 @@ def delete_transaction(
     connection.commit()
 
     return cursor.rowcount
+
 
 def get_transaction_summary(user_id, connection):
     cursor = connection.cursor()
