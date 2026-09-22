@@ -1,8 +1,11 @@
 from datetime import date
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 
+from config import settings
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -37,6 +40,48 @@ from services import (
 
 app = FastAPI()
 
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=settings.allowed_hosts,
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+    ],
+)
+
+
+@app.middleware("http")
+async def add_security_headers(
+    request: Request,
+    call_next
+):
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=()"
+    )
+
+    return response
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(
     request: Request,
@@ -64,6 +109,7 @@ async def http_exception_handler(
         headers=exc.headers
     )
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request,
@@ -77,7 +123,8 @@ async def validation_exception_handler(
             "details": jsonable_encoder(exc.errors())
         }
     )
-    
+
+
 def validate_date_range(
     date_from: date | None,
     date_to: date | None
@@ -206,7 +253,10 @@ def get_transactions_summary(
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
-    validate_date_range(date_from, date_to)
+    validate_date_range(
+        date_from,
+        date_to
+    )
 
     return get_user_summary(
         current_user[0],
@@ -226,7 +276,10 @@ def get_category_summary_report(
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
-    validate_date_range(date_from, date_to)
+    validate_date_range(
+        date_from,
+        date_to
+    )
 
     return get_user_category_summary(
         current_user[0],
@@ -246,7 +299,10 @@ def get_monthly_summary_report(
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
-    validate_date_range(date_from, date_to)
+    validate_date_range(
+        date_from,
+        date_to
+    )
 
     return get_user_monthly_summary(
         current_user[0],

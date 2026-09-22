@@ -25,6 +25,9 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_ENV: ${APP_ENV}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       SECRET_KEY: ${SECRET_KEY}
       DATABASE_HOST: db
       DATABASE_PORT: 5432

@@ -1810,3 +1810,44 @@ def test_validation_error_format():
     assert data["message"] == "Request validation failed"
     assert isinstance(data["details"], list)
     assert len(data["details"]) > 0
+
+def test_security_headers():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert (
+        response.headers["Permissions-Policy"]
+        == "camera=(), microphone=(), geolocation=()"
+    )
+
+def test_cors_configuration():
+    allowed_response = client.get(
+        "/",
+        headers={"Origin": "http://localhost:5173"}
+    )
+
+    assert allowed_response.status_code == 200
+    assert (
+        allowed_response.headers["access-control-allow-origin"]
+        == "http://localhost:5173"
+    )
+
+    blocked_response = client.get(
+        "/",
+        headers={"Origin": "http://example.com"}
+    )
+
+    assert blocked_response.status_code == 200
+    assert "access-control-allow-origin" not in blocked_response.headers
+
+def test_invalid_host_is_rejected():
+    response = client.get(
+        "/",
+        headers={"host": "malicious.example.com"}
+    )
+
+    assert response.status_code == 400
+    assert response.text == "Invalid host header"

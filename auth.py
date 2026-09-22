@@ -1,22 +1,13 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from dotenv import load_dotenv
 from pwdlib import PasswordHash
 
+from config import settings
 
-load_dotenv()
-
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY is not configured")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
 
 # Use Argon2 for secure password hashing
 password_hash = PasswordHash.recommended()
@@ -43,7 +34,7 @@ def create_access_token(user_id):
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
+        settings.secret_key,
         algorithm=ALGORITHM
     )
 
@@ -53,7 +44,7 @@ def decode_access_token(token):
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
+            settings.secret_key,
             algorithms=[ALGORITHM]
         )
 
