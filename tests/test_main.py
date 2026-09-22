@@ -1,49 +1,39 @@
-import sqlite3
+import os
 
+import psycopg
 import pytest
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
 from main import app, get_db
+from migrations import run_migrations
 
 
-TEST_DATABASE = "test_finance.db"
+load_dotenv()
 
 
-# Create a fresh test database connection
+TEST_DATABASE = "finance_test"
+
+
+# Create a PostgreSQL test database connection
 def get_test_connection():
-    connection = sqlite3.connect(TEST_DATABASE)
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    return psycopg.connect(
+        host=os.getenv("DATABASE_HOST"),
+        port=os.getenv("DATABASE_PORT"),
+        dbname=TEST_DATABASE,
+        user=os.getenv("DATABASE_USER"),
+        password=os.getenv("DATABASE_PASSWORD")
+    )
 
 
 # Create the test database schema
 def create_test_schema():
     connection = get_test_connection()
-    cursor = connection.cursor()
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        hashed_password TEXT NOT NULL
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        amount REAL,
-        category TEXT,
-        description TEXT,
-        transaction_type TEXT NOT NULL,
-        transaction_date TEXT NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    """)
-
-    connection.commit()
-    connection.close()
+    try:
+        run_migrations(connection)
+    finally:
+        connection.close()
 
 
 # Replace the application's database with the test database
@@ -67,14 +57,19 @@ def reset_database():
     create_test_schema()
 
     connection = get_test_connection()
-    cursor = connection.cursor()
 
-    cursor.execute("DELETE FROM transactions")
-    cursor.execute("DELETE FROM users")
+    try:
+        connection.execute("""
+            TRUNCATE TABLE
+                transactions,
+                users
+            RESTART IDENTITY
+            CASCADE
+        """)
 
-    connection.commit()
-    connection.close()
-
+        connection.commit()
+    finally:
+        connection.close()
 
 # -------------------------
 # Basic API tests

@@ -31,15 +31,16 @@ def get_schema_version(connection):
 def set_schema_version(version, connection):
     connection.execute("""
         UPDATE schema_version
-        SET version = ?
+        SET version = %s
     """, (version,))
 
     connection.commit()
 
+
 def migrate_to_version_1(connection):
     connection.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             hashed_password TEXT NOT NULL
         )
@@ -47,23 +48,26 @@ def migrate_to_version_1(connection):
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
-            amount REAL,
+            amount DOUBLE PRECISION,
             category TEXT,
             description TEXT,
             transaction_type TEXT NOT NULL DEFAULT 'expense',
-            transaction_date TEXT NOT NULL DEFAULT '1970-01-01',
+            transaction_date DATE NOT NULL DEFAULT '1970-01-01',
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
 
     cursor = connection.execute("""
-        PRAGMA table_info(transactions)
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        AND table_name = 'transactions'
     """)
 
     columns = {
-        row[1]
+        row[0]
         for row in cursor.fetchall()
     }
 
@@ -76,10 +80,11 @@ def migrate_to_version_1(connection):
     if "transaction_date" not in columns:
         connection.execute("""
             ALTER TABLE transactions
-            ADD COLUMN transaction_date TEXT NOT NULL DEFAULT '1970-01-01'
+            ADD COLUMN transaction_date DATE NOT NULL DEFAULT '1970-01-01'
         """)
 
     connection.commit()
+
 
 CURRENT_SCHEMA_VERSION = 1
 

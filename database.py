@@ -1,12 +1,22 @@
-import sqlite3
+import os
+
+import psycopg
+from dotenv import load_dotenv
 
 from migrations import run_migrations
 
 
+load_dotenv()
+
+
 def get_connection():
-    connection = sqlite3.connect("finance.db")
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    return psycopg.connect(
+        host=os.getenv("DATABASE_HOST"),
+        port=os.getenv("DATABASE_PORT"),
+        dbname=os.getenv("DATABASE_NAME"),
+        user=os.getenv("DATABASE_USER"),
+        password=os.getenv("DATABASE_PASSWORD")
+    )
 
 
 def initialize_database():
@@ -26,11 +36,10 @@ initialize_database()
 # -------------------------
 
 def create_user(username, hashed_password, connection):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         INSERT INTO users (username, hashed_password)
-        VALUES (?, ?)
+        VALUES (%s, %s)
+        RETURNING id
     """, (
         username,
         hashed_password
@@ -38,28 +47,24 @@ def create_user(username, hashed_password, connection):
 
     connection.commit()
 
-    return cursor.lastrowid
+    return cursor.fetchone()[0]
 
 
 def get_user_by_username(username, connection):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         SELECT id, username, hashed_password
         FROM users
-        WHERE username = ?
+        WHERE username = %s
     """, (username,))
 
     return cursor.fetchone()
 
 
 def get_user_by_id(user_id, connection):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         SELECT id, username, hashed_password
         FROM users
-        WHERE id = ?
+        WHERE id = %s
     """, (user_id,))
 
     return cursor.fetchone()
@@ -78,30 +83,30 @@ def build_transaction_filters(
 ):
     query = """
         FROM transactions
-        WHERE user_id = ?
+        WHERE user_id = %s
     """
 
     parameters = [user_id]
 
     # Add an optional transaction-type filter
     if transaction_type is not None:
-        query += " AND transaction_type = ?"
+        query += " AND transaction_type = %s"
         parameters.append(transaction_type)
 
     # Add an optional category filter
     if category is not None:
-        query += " AND category = ?"
+        query += " AND category = %s"
         parameters.append(category)
 
     # Add an optional start-date filter
     if date_from is not None:
-        query += " AND transaction_date >= ?"
-        parameters.append(date_from.isoformat())
+        query += " AND transaction_date >= %s"
+        parameters.append(date_from)
 
     # Add an optional end-date filter
     if date_to is not None:
-        query += " AND transaction_date <= ?"
-        parameters.append(date_to.isoformat())
+        query += " AND transaction_date <= %s"
+        parameters.append(date_to)
 
     return query, parameters
 
@@ -119,9 +124,7 @@ def create_transaction(
     transaction_date,
     connection
 ):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         INSERT INTO transactions (
             user_id,
             amount,
@@ -130,7 +133,8 @@ def create_transaction(
             transaction_type,
             transaction_date
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
     """, (
         user_id,
         amount,
@@ -142,7 +146,7 @@ def create_transaction(
 
     connection.commit()
 
-    return cursor.lastrowid
+    return cursor.fetchone()[0]
 
 
 def get_all_transactions(
@@ -155,8 +159,6 @@ def get_all_transactions(
     limit=20,
     offset=0
 ):
-    cursor = connection.cursor()
-
     filters, parameters = build_transaction_filters(
         user_id,
         transaction_type,
@@ -182,14 +184,14 @@ def get_all_transactions(
     query += " ORDER BY transaction_date DESC, id DESC"
 
     # Return only the requested page
-    query += " LIMIT ? OFFSET ?"
+    query += " LIMIT %s OFFSET %s"
 
     parameters.extend([
         limit,
         offset
     ])
 
-    cursor.execute(
+    cursor = connection.execute(
         query,
         parameters
     )
@@ -205,8 +207,6 @@ def count_transactions(
     date_from=None,
     date_to=None
 ):
-    cursor = connection.cursor()
-
     filters, parameters = build_transaction_filters(
         user_id,
         transaction_type,
@@ -217,7 +217,7 @@ def count_transactions(
 
     query = "SELECT COUNT(*) " + filters
 
-    cursor.execute(
+    cursor = connection.execute(
         query,
         parameters
     )
@@ -230,9 +230,7 @@ def get_transaction_by_id(
     user_id,
     connection
 ):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         SELECT
             id,
             user_id,
@@ -242,7 +240,7 @@ def get_transaction_by_id(
             transaction_type,
             transaction_date
         FROM transactions
-        WHERE id = ? AND user_id = ?
+        WHERE id = %s AND user_id = %s
     """, (
         transaction_id,
         user_id
@@ -261,17 +259,15 @@ def update_transaction(
     transaction_date,
     connection
 ):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         UPDATE transactions
         SET
-            amount = ?,
-            category = ?,
-            description = ?,
-            transaction_type = ?,
-            transaction_date = ?
-        WHERE id = ? AND user_id = ?
+            amount = %s,
+            category = %s,
+            description = %s,
+            transaction_type = %s,
+            transaction_date = %s
+        WHERE id = %s AND user_id = %s
     """, (
         amount,
         category,
@@ -292,11 +288,9 @@ def delete_transaction(
     user_id,
     connection
 ):
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    cursor = connection.execute("""
         DELETE FROM transactions
-        WHERE id = ? AND user_id = ?
+        WHERE id = %s AND user_id = %s
     """, (
         transaction_id,
         user_id
@@ -317,8 +311,6 @@ def get_transaction_summary(
     date_from=None,
     date_to=None
 ):
-    cursor = connection.cursor()
-
     query = """
         SELECT
             COALESCE(SUM(CASE
@@ -336,22 +328,22 @@ def get_transaction_summary(
             COUNT(*)
 
         FROM transactions
-        WHERE user_id = ?
+        WHERE user_id = %s
     """
 
     parameters = [user_id]
 
     # Add an optional start-date filter
     if date_from is not None:
-        query += " AND transaction_date >= ?"
-        parameters.append(date_from.isoformat())
+        query += " AND transaction_date >= %s"
+        parameters.append(date_from)
 
     # Add an optional end-date filter
     if date_to is not None:
-        query += " AND transaction_date <= ?"
-        parameters.append(date_to.isoformat())
+        query += " AND transaction_date <= %s"
+        parameters.append(date_to)
 
-    cursor.execute(
+    cursor = connection.execute(
         query,
         parameters
     )
@@ -365,14 +357,12 @@ def get_category_summary(
     date_from=None,
     date_to=None
 ):
-    cursor = connection.cursor()
-
     query = """
         SELECT
             category,
             SUM(amount) AS total
         FROM transactions
-        WHERE user_id = ?
+        WHERE user_id = %s
         AND transaction_type = 'expense'
     """
 
@@ -380,20 +370,20 @@ def get_category_summary(
 
     # Add an optional start-date filter
     if date_from is not None:
-        query += " AND transaction_date >= ?"
-        parameters.append(date_from.isoformat())
+        query += " AND transaction_date >= %s"
+        parameters.append(date_from)
 
     # Add an optional end-date filter
     if date_to is not None:
-        query += " AND transaction_date <= ?"
-        parameters.append(date_to.isoformat())
+        query += " AND transaction_date <= %s"
+        parameters.append(date_to)
 
     query += """
         GROUP BY category
         ORDER BY total DESC
     """
 
-    cursor.execute(
+    cursor = connection.execute(
         query,
         parameters
     )
@@ -407,11 +397,9 @@ def get_monthly_summary(
     date_from=None,
     date_to=None
 ):
-    cursor = connection.cursor()
-
     query = """
         SELECT
-            SUBSTR(transaction_date, 1, 7) AS month,
+            SUBSTRING(transaction_date::TEXT FROM 1 FOR 7) AS month,
 
             COALESCE(SUM(CASE
                 WHEN transaction_type = 'income'
@@ -426,27 +414,27 @@ def get_monthly_summary(
             END), 0) AS total_expenses
 
         FROM transactions
-        WHERE user_id = ?
+        WHERE user_id = %s
     """
 
     parameters = [user_id]
 
     # Add an optional start-date filter
     if date_from is not None:
-        query += " AND transaction_date >= ?"
-        parameters.append(date_from.isoformat())
+        query += " AND transaction_date >= %s"
+        parameters.append(date_from)
 
     # Add an optional end-date filter
     if date_to is not None:
-        query += " AND transaction_date <= ?"
-        parameters.append(date_to.isoformat())
+        query += " AND transaction_date <= %s"
+        parameters.append(date_to)
 
     query += """
-        GROUP BY SUBSTR(transaction_date, 1, 7)
+        GROUP BY SUBSTRING(transaction_date::TEXT FROM 1 FOR 7)
         ORDER BY month
     """
 
-    cursor.execute(
+    cursor = connection.execute(
         query,
         parameters
     )
