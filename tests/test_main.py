@@ -323,10 +323,16 @@ def test_get_transactions_authenticated():
 
     data = response.json()
 
-    assert len(data) == 1
-    assert data[0]["user_id"] == 1
-    assert data[0]["transaction_type"] == "expense"
-    assert data[0]["transaction_date"] == "2026-09-19"
+    assert data["total"] == 1
+    assert data["limit"] == 20
+    assert data["offset"] == 0
+
+    items = data["items"]
+
+    assert len(items) == 1
+    assert items[0]["user_id"] == 1
+    assert items[0]["transaction_type"] == "expense"
+    assert items[0]["transaction_date"] == "2026-09-19"
 
 
 # -------------------------
@@ -369,7 +375,7 @@ def test_filter_transactions_by_type():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["transaction_type"] == "expense"
@@ -412,7 +418,7 @@ def test_filter_transactions_by_category():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["category"] == "Food"
@@ -466,7 +472,7 @@ def test_filter_transactions_by_type_and_category():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["category"] == "Food"
@@ -509,7 +515,7 @@ def test_filter_transactions_by_date_from():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["transaction_date"] == "2026-09-15"
@@ -551,7 +557,7 @@ def test_filter_transactions_by_date_to():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["transaction_date"] == "2026-09-05"
@@ -605,7 +611,7 @@ def test_filter_transactions_by_date_range():
 
     assert response.status_code == 200
 
-    data = response.json()
+    data = response.json()["items"]
 
     assert len(data) == 1
     assert data[0]["transaction_date"] == "2026-09-15"
@@ -800,6 +806,10 @@ def test_user_cannot_delete_another_users_transaction():
 
     assert response.status_code == 404
 
+
+# -------------------------
+# Financial summary tests
+# -------------------------
 
 def test_empty_transaction_summary():
     register_response = client.post(
@@ -1168,6 +1178,10 @@ def test_transaction_summary_date_range():
     }
 
 
+# -------------------------
+# Category summary tests
+# -------------------------
+
 def test_category_summary():
     register_user("category_user")
 
@@ -1368,6 +1382,10 @@ def test_category_summary_only_includes_own_transactions():
     ]
 
 
+# -------------------------
+# Monthly summary tests
+# -------------------------
+
 def test_monthly_summary():
     register_user("monthly_user")
 
@@ -1562,6 +1580,10 @@ def test_monthly_summary_only_includes_own_transactions():
     ]
 
 
+# -------------------------
+# Report validation tests
+# -------------------------
+
 def test_report_rejects_invalid_date_range():
     register_user("report_user")
 
@@ -1584,3 +1606,125 @@ def test_report_rejects_invalid_date_range():
         assert response.json() == {
             "detail": "date_from cannot be after date_to"
         }
+
+def test_transaction_pagination():
+    register_user("pagination_user")
+
+    headers = get_auth_headers("pagination_user")
+
+    for day in range(1, 6):
+        client.post(
+            "/transactions",
+            json={
+                "amount": day * 10,
+                "category": "Food",
+                "description": f"Transaction {day}",
+                "transaction_type": "expense",
+                "transaction_date": f"2026-09-{day:02d}"
+            },
+            headers=headers
+        )
+
+    response = client.get(
+        "/transactions?limit=2&offset=2",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 5
+    assert data["limit"] == 2
+    assert data["offset"] == 2
+
+    assert len(data["items"]) == 2
+
+    assert data["items"][0]["id"] == 3
+    assert data["items"][1]["id"] == 2
+
+def test_transaction_pagination_defaults():
+    register_user("pagination_user")
+
+    headers = get_auth_headers("pagination_user")
+
+    response = client.get(
+        "/transactions",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["limit"] == 20
+    assert data["offset"] == 0
+
+def test_transaction_pagination_invalid_limit():
+    register_user("pagination_user")
+
+    headers = get_auth_headers("pagination_user")
+
+    response = client.get(
+        "/transactions?limit=101",
+        headers=headers
+    )
+
+    assert response.status_code == 422
+
+def test_transaction_pagination_invalid_offset():
+    register_user("pagination_user")
+
+    headers = get_auth_headers("pagination_user")
+
+    response = client.get(
+        "/transactions?offset=-1",
+        headers=headers
+    )
+
+    assert response.status_code == 422
+
+def test_transaction_pagination_with_category_filter():
+    register_user("pagination_filter_user")
+
+    headers = get_auth_headers("pagination_filter_user")
+
+    transactions = [
+        ("Food", "2026-09-01"),
+        ("Food", "2026-09-02"),
+        ("Food", "2026-09-03"),
+        ("Shopping", "2026-09-04"),
+        ("Shopping", "2026-09-05")
+    ]
+
+    for index, (category, transaction_date) in enumerate(transactions, start=1):
+        client.post(
+            "/transactions",
+            json={
+                "amount": index * 10,
+                "category": category,
+                "description": f"Transaction {index}",
+                "transaction_type": "expense",
+                "transaction_date": transaction_date
+            },
+            headers=headers
+        )
+
+    response = client.get(
+        "/transactions?category=Food&limit=2&offset=2",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 3
+    assert data["limit"] == 2
+    assert data["offset"] == 2
+
+    assert len(data["items"]) == 1
+    assert data["items"][0]["category"] == "Food"
+    assert data["items"][0]["description"] == "Transaction 1"

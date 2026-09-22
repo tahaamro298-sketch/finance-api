@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from dependencies import get_current_user, get_db
@@ -12,6 +12,7 @@ from models import (
     Token,
     Transaction,
     TransactionCreate,
+    TransactionList,
     UserCreate,
     UserResponse,
 )
@@ -126,13 +127,15 @@ def create_transaction_endpoint(
 
 @app.get(
     "/transactions",
-    response_model=list[Transaction]
+    response_model=TransactionList
 )
 def get_transactions(
     transaction_type: str | None = None,
     category: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
@@ -142,7 +145,9 @@ def get_transactions(
         transaction_type,
         category,
         date_from,
-        date_to
+        date_to,
+        limit,
+        offset
     )
 
 

@@ -56,3 +56,9 @@ class MonthlySummary(BaseModel):
     total_income: float
     total_expenses: float
     balance: float
+
+class TransactionList(BaseModel):
+    items: list[Transaction]
+    total: int
+    limit: int
+    offset: int

@@ -3,6 +3,7 @@ from database import (
     get_user_by_username,
     create_transaction,
     get_all_transactions,
+    count_transactions,
     get_transaction_by_id,
     update_transaction,
     delete_transaction,
@@ -17,7 +18,10 @@ from auth import (
     create_access_token
 )
 
-from models import Transaction
+from models import (
+    Transaction,
+    TransactionList
+)
 
 
 def register_user(username, password, connection):
@@ -98,9 +102,22 @@ def get_user_transactions(
     transaction_type=None,
     category=None,
     date_from=None,
-    date_to=None
+    date_to=None,
+    limit=20,
+    offset=0
 ):
     rows = get_all_transactions(
+        user_id,
+        connection,
+        transaction_type,
+        category,
+        date_from,
+        date_to,
+        limit,
+        offset
+    )
+
+    total = count_transactions(
         user_id,
         connection,
         transaction_type,
@@ -109,10 +126,17 @@ def get_user_transactions(
         date_to
     )
 
-    return [
+    transactions = [
         transaction_from_row(row)
         for row in rows
     ]
+
+    return TransactionList(
+        items=transactions,
+        total=total,
+        limit=limit,
+        offset=offset
+    )
 
 
 def get_user_transaction(
@@ -203,6 +227,7 @@ def get_user_summary(
         "transaction_count": transaction_count
     }
 
+
 def get_user_category_summary(
     user_id,
     connection,
@@ -223,6 +248,7 @@ def get_user_category_summary(
         }
         for row in rows
     ]
+
 
 def get_user_monthly_summary(
     user_id,

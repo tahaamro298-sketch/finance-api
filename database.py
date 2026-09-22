@@ -1,4 +1,5 @@
 import sqlite3
+
 from migrations import run_migrations
 
 
@@ -65,6 +66,47 @@ def get_user_by_id(user_id, connection):
 
 
 # -------------------------
+# Transaction query helpers
+# -------------------------
+
+def build_transaction_filters(
+    user_id,
+    transaction_type=None,
+    category=None,
+    date_from=None,
+    date_to=None
+):
+    query = """
+        FROM transactions
+        WHERE user_id = ?
+    """
+
+    parameters = [user_id]
+
+    # Add an optional transaction-type filter
+    if transaction_type is not None:
+        query += " AND transaction_type = ?"
+        parameters.append(transaction_type)
+
+    # Add an optional category filter
+    if category is not None:
+        query += " AND category = ?"
+        parameters.append(category)
+
+    # Add an optional start-date filter
+    if date_from is not None:
+        query += " AND transaction_date >= ?"
+        parameters.append(date_from.isoformat())
+
+    # Add an optional end-date filter
+    if date_to is not None:
+        query += " AND transaction_date <= ?"
+        parameters.append(date_to.isoformat())
+
+    return query, parameters
+
+
+# -------------------------
 # Transaction database operations
 # -------------------------
 
@@ -109,9 +151,19 @@ def get_all_transactions(
     transaction_type=None,
     category=None,
     date_from=None,
-    date_to=None
+    date_to=None,
+    limit=20,
+    offset=0
 ):
     cursor = connection.cursor()
+
+    filters, parameters = build_transaction_filters(
+        user_id,
+        transaction_type,
+        category,
+        date_from,
+        date_to
+    )
 
     query = """
         SELECT
@@ -122,34 +174,20 @@ def get_all_transactions(
             description,
             transaction_type,
             transaction_date
-        FROM transactions
-        WHERE user_id = ?
     """
 
-    parameters = [user_id]
-
-    # Add an optional transaction-type filter
-    if transaction_type is not None:
-        query += " AND transaction_type = ?"
-        parameters.append(transaction_type)
-
-    # Add an optional category filter
-    if category is not None:
-        query += " AND category = ?"
-        parameters.append(category)
-
-    # Add an optional start-date filter
-    if date_from is not None:
-        query += " AND transaction_date >= ?"
-        parameters.append(date_from.isoformat())
-
-    # Add an optional end-date filter
-    if date_to is not None:
-        query += " AND transaction_date <= ?"
-        parameters.append(date_to.isoformat())
+    query += filters
 
     # Return newest transactions first
     query += " ORDER BY transaction_date DESC, id DESC"
+
+    # Return only the requested page
+    query += " LIMIT ? OFFSET ?"
+
+    parameters.extend([
+        limit,
+        offset
+    ])
 
     cursor.execute(
         query,
@@ -157,6 +195,34 @@ def get_all_transactions(
     )
 
     return cursor.fetchall()
+
+
+def count_transactions(
+    user_id,
+    connection,
+    transaction_type=None,
+    category=None,
+    date_from=None,
+    date_to=None
+):
+    cursor = connection.cursor()
+
+    filters, parameters = build_transaction_filters(
+        user_id,
+        transaction_type,
+        category,
+        date_from,
+        date_to
+    )
+
+    query = "SELECT COUNT(*) " + filters
+
+    cursor.execute(
+        query,
+        parameters
+    )
+
+    return cursor.fetchone()[0]
 
 
 def get_transaction_by_id(
@@ -241,6 +307,10 @@ def delete_transaction(
     return cursor.rowcount
 
 
+# -------------------------
+# Financial summary operations
+# -------------------------
+
 def get_transaction_summary(
     user_id,
     connection,
@@ -288,6 +358,7 @@ def get_transaction_summary(
 
     return cursor.fetchone()
 
+
 def get_category_summary(
     user_id,
     connection,
@@ -328,6 +399,7 @@ def get_category_summary(
     )
 
     return cursor.fetchall()
+
 
 def get_monthly_summary(
     user_id,
