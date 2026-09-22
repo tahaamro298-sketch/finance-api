@@ -1,7 +1,12 @@
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from dependencies import get_current_user, get_db
 from models import (
@@ -32,7 +37,47 @@ from services import (
 
 app = FastAPI()
 
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(
+    request: Request,
+    exc: StarletteHTTPException
+):
+    error_types = {
+        400: "bad_request",
+        401: "unauthorized",
+        403: "forbidden",
+        404: "not_found",
+        405: "method_not_allowed"
+    }
 
+    error_type = error_types.get(
+        exc.status_code,
+        "http_error"
+    )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": error_type,
+            "message": str(exc.detail)
+        },
+        headers=exc.headers
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError
+):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "validation_error",
+            "message": "Request validation failed",
+            "details": jsonable_encoder(exc.errors())
+        }
+    )
+    
 def validate_date_range(
     date_from: date | None,
     date_to: date | None

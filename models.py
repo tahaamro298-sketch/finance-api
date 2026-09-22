@@ -62,3 +62,8 @@ class TransactionList(BaseModel):
     total: int
     limit: int
     offset: int
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+    details: list[dict] | None = None

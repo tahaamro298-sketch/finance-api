@@ -1604,8 +1604,14 @@ def test_report_rejects_invalid_date_range():
         assert response.status_code == 400
 
         assert response.json() == {
-            "detail": "date_from cannot be after date_to"
+            "error": "bad_request",
+            "message": "date_from cannot be after date_to"
         }
+
+
+# -------------------------
+# Pagination tests
+# -------------------------
 
 def test_transaction_pagination():
     register_user("pagination_user")
@@ -1643,6 +1649,7 @@ def test_transaction_pagination():
     assert data["items"][0]["id"] == 3
     assert data["items"][1]["id"] == 2
 
+
 def test_transaction_pagination_defaults():
     register_user("pagination_user")
 
@@ -1662,6 +1669,7 @@ def test_transaction_pagination_defaults():
     assert data["limit"] == 20
     assert data["offset"] == 0
 
+
 def test_transaction_pagination_invalid_limit():
     register_user("pagination_user")
 
@@ -1674,6 +1682,7 @@ def test_transaction_pagination_invalid_limit():
 
     assert response.status_code == 422
 
+
 def test_transaction_pagination_invalid_offset():
     register_user("pagination_user")
 
@@ -1685,6 +1694,7 @@ def test_transaction_pagination_invalid_offset():
     )
 
     assert response.status_code == 422
+
 
 def test_transaction_pagination_with_category_filter():
     register_user("pagination_filter_user")
@@ -1699,7 +1709,10 @@ def test_transaction_pagination_with_category_filter():
         ("Shopping", "2026-09-05")
     ]
 
-    for index, (category, transaction_date) in enumerate(transactions, start=1):
+    for index, (category, transaction_date) in enumerate(
+        transactions,
+        start=1
+    ):
         client.post(
             "/transactions",
             json={
@@ -1728,3 +1741,77 @@ def test_transaction_pagination_with_category_filter():
     assert len(data["items"]) == 1
     assert data["items"][0]["category"] == "Food"
     assert data["items"][0]["description"] == "Transaction 1"
+
+def test_bad_request_error_format():
+    register_user("error_user")
+
+    response = client.post(
+        "/register",
+        json={
+            "username": "error_user",
+            "password": "password123"
+        }
+    )
+
+    assert response.status_code == 400
+
+    assert response.json() == {
+        "error": "bad_request",
+        "message": "Username already exists"
+    }
+
+def test_unauthorized_error_format():
+    response = client.get("/transactions")
+
+    assert response.status_code == 401
+
+    data = response.json()
+
+    assert data["error"] == "unauthorized"
+    assert data["message"] == "Not authenticated"
+
+    assert "WWW-Authenticate" in response.headers
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+
+def test_not_found_error_format():
+    register_user("not_found_user")
+
+    headers = get_auth_headers("not_found_user")
+
+    response = client.get(
+        "/transactions/999",
+        headers=headers
+    )
+
+    assert response.status_code == 404
+
+    assert response.json() == {
+        "error": "not_found",
+        "message": "Transaction not found"
+    }
+
+def test_validation_error_format():
+    register_user("validation_user")
+
+    headers = get_auth_headers("validation_user")
+
+    response = client.post(
+        "/transactions",
+        json={
+            "amount": 0,
+            "category": "Food",
+            "description": "Invalid amount",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-19"
+        },
+        headers=headers
+    )
+
+    assert response.status_code == 422
+
+    data = response.json()
+
+    assert data["error"] == "validation_error"
+    assert data["message"] == "Request validation failed"
+    assert isinstance(data["details"], list)
+    assert len(data["details"]) > 0
