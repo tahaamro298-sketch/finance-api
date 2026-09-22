@@ -6,7 +6,9 @@ from database import (
     get_transaction_by_id,
     update_transaction,
     delete_transaction,
-    get_transaction_summary
+    get_transaction_summary,
+    get_category_summary,
+    get_monthly_summary
 )
 
 from auth import (
@@ -175,10 +177,17 @@ def delete_user_transaction(
     )
 
 
-def get_user_summary(user_id, connection):
+def get_user_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
     row = get_transaction_summary(
         user_id,
-        connection
+        connection,
+        date_from,
+        date_to
     )
 
     total_income = row[0]
@@ -193,3 +202,47 @@ def get_user_summary(user_id, connection):
         "balance": balance,
         "transaction_count": transaction_count
     }
+
+def get_user_category_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
+    rows = get_category_summary(
+        user_id,
+        connection,
+        date_from,
+        date_to
+    )
+
+    return [
+        {
+            "category": row[0],
+            "total": row[1]
+        }
+        for row in rows
+    ]
+
+def get_user_monthly_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
+    rows = get_monthly_summary(
+        user_id,
+        connection,
+        date_from,
+        date_to
+    )
+
+    return [
+        {
+            "month": row[0],
+            "total_income": row[1],
+            "total_expenses": row[2],
+            "balance": row[1] - row[2]
+        }
+        for row in rows
+    ]

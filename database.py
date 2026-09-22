@@ -241,10 +241,15 @@ def delete_transaction(
     return cursor.rowcount
 
 
-def get_transaction_summary(user_id, connection):
+def get_transaction_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
     cursor = connection.cursor()
 
-    cursor.execute("""
+    query = """
         SELECT
             COALESCE(SUM(CASE
                 WHEN transaction_type = 'income'
@@ -262,6 +267,116 @@ def get_transaction_summary(user_id, connection):
 
         FROM transactions
         WHERE user_id = ?
-    """, (user_id,))
+    """
+
+    parameters = [user_id]
+
+    # Add an optional start-date filter
+    if date_from is not None:
+        query += " AND transaction_date >= ?"
+        parameters.append(date_from.isoformat())
+
+    # Add an optional end-date filter
+    if date_to is not None:
+        query += " AND transaction_date <= ?"
+        parameters.append(date_to.isoformat())
+
+    cursor.execute(
+        query,
+        parameters
+    )
 
     return cursor.fetchone()
+
+def get_category_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
+    cursor = connection.cursor()
+
+    query = """
+        SELECT
+            category,
+            SUM(amount) AS total
+        FROM transactions
+        WHERE user_id = ?
+        AND transaction_type = 'expense'
+    """
+
+    parameters = [user_id]
+
+    # Add an optional start-date filter
+    if date_from is not None:
+        query += " AND transaction_date >= ?"
+        parameters.append(date_from.isoformat())
+
+    # Add an optional end-date filter
+    if date_to is not None:
+        query += " AND transaction_date <= ?"
+        parameters.append(date_to.isoformat())
+
+    query += """
+        GROUP BY category
+        ORDER BY total DESC
+    """
+
+    cursor.execute(
+        query,
+        parameters
+    )
+
+    return cursor.fetchall()
+
+def get_monthly_summary(
+    user_id,
+    connection,
+    date_from=None,
+    date_to=None
+):
+    cursor = connection.cursor()
+
+    query = """
+        SELECT
+            SUBSTR(transaction_date, 1, 7) AS month,
+
+            COALESCE(SUM(CASE
+                WHEN transaction_type = 'income'
+                THEN amount
+                ELSE 0
+            END), 0) AS total_income,
+
+            COALESCE(SUM(CASE
+                WHEN transaction_type = 'expense'
+                THEN amount
+                ELSE 0
+            END), 0) AS total_expenses
+
+        FROM transactions
+        WHERE user_id = ?
+    """
+
+    parameters = [user_id]
+
+    # Add an optional start-date filter
+    if date_from is not None:
+        query += " AND transaction_date >= ?"
+        parameters.append(date_from.isoformat())
+
+    # Add an optional end-date filter
+    if date_to is not None:
+        query += " AND transaction_date <= ?"
+        parameters.append(date_to.isoformat())
+
+    query += """
+        GROUP BY SUBSTR(transaction_date, 1, 7)
+        ORDER BY month
+    """
+
+    cursor.execute(
+        query,
+        parameters
+    )
+
+    return cursor.fetchall()

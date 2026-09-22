@@ -1,35 +1,50 @@
 from datetime import date
-from fastapi import FastAPI, HTTPException, Depends, status
+
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from dependencies import (
-    get_db,
-    get_current_user
-)
-
+from dependencies import get_current_user, get_db
 from models import (
+    CategorySummary,
+    DeleteResponse,
+    MonthlySummary,
+    Summary,
+    Token,
+    Transaction,
+    TransactionCreate,
     UserCreate,
     UserResponse,
-    Token,
-    TransactionCreate,
-    Transaction,
-    DeleteResponse,
-    Summary
 )
-
 from services import (
-    register_user,
     authenticate_user,
     create_user_transaction,
-    get_user_transactions,
-    get_user_transaction,
-    update_user_transaction,
     delete_user_transaction,
-    get_user_summary
+    get_user_category_summary,
+    get_user_monthly_summary,
+    get_user_summary,
+    get_user_transaction,
+    get_user_transactions,
+    register_user,
+    update_user_transaction,
 )
 
 
 app = FastAPI()
+
+
+def validate_date_range(
+    date_from: date | None,
+    date_to: date | None
+):
+    if (
+        date_from is not None
+        and date_to is not None
+        and date_from > date_to
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="date_from cannot be after date_to"
+        )
 
 
 @app.get("/")
@@ -37,13 +52,12 @@ def home():
     return "Hello"
 
 
-# Register a new user
 @app.post(
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED
 )
-def register_user_endpoint(
+def register(
     user: UserCreate,
     connection=Depends(get_db)
 ):
@@ -56,40 +70,39 @@ def register_user_endpoint(
     if user_id is None:
         raise HTTPException(
             status_code=400,
-            detail="Username already registered"
+            detail="Username already exists"
         )
 
-    return UserResponse(
-        id=user_id,
-        username=user.username
-    )
+    return {
+        "id": user_id,
+        "username": user.username
+    }
 
 
-# Log in a user and return a JWT access token
 @app.post("/login", response_model=Token)
-def login_user_endpoint(
+def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     connection=Depends(get_db)
 ):
-    access_token = authenticate_user(
+    token = authenticate_user(
         form_data.username,
         form_data.password,
         connection
     )
 
-    if access_token is None:
+    if token is None:
         raise HTTPException(
             status_code=401,
-            detail="Incorrect username or password"
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"}
         )
 
     return {
-        "access_token": access_token,
+        "access_token": token,
         "token_type": "bearer"
     }
 
 
-# Create a transaction for the authenticated user
 @app.post(
     "/transactions",
     response_model=Transaction,
@@ -111,8 +124,10 @@ def create_transaction_endpoint(
     )
 
 
-# Get the authenticated user's transactions with optional filters
-@app.get("/transactions", response_model=list[Transaction])
+@app.get(
+    "/transactions",
+    response_model=list[Transaction]
+)
 def get_transactions(
     transaction_type: str | None = None,
     category: str | None = None,
@@ -130,16 +145,67 @@ def get_transactions(
         date_to
     )
 
-@app.get("/transactions/summary", response_model=Summary)
+
+@app.get(
+    "/transactions/summary",
+    response_model=Summary
+)
 def get_transactions_summary(
+    date_from: date | None = None,
+    date_to: date | None = None,
     current_user=Depends(get_current_user),
     connection=Depends(get_db)
 ):
+    validate_date_range(date_from, date_to)
+
     return get_user_summary(
         current_user[0],
-        connection
+        connection,
+        date_from,
+        date_to
     )
-# Get one transaction belonging to the authenticated user
+
+
+@app.get(
+    "/transactions/category-summary",
+    response_model=list[CategorySummary]
+)
+def get_category_summary_report(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    current_user=Depends(get_current_user),
+    connection=Depends(get_db)
+):
+    validate_date_range(date_from, date_to)
+
+    return get_user_category_summary(
+        current_user[0],
+        connection,
+        date_from,
+        date_to
+    )
+
+
+@app.get(
+    "/transactions/monthly-summary",
+    response_model=list[MonthlySummary]
+)
+def get_monthly_summary_report(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    current_user=Depends(get_current_user),
+    connection=Depends(get_db)
+):
+    validate_date_range(date_from, date_to)
+
+    return get_user_monthly_summary(
+        current_user[0],
+        connection,
+        date_from,
+        date_to
+    )
+
+
 @app.get(
     "/transactions/{transaction_id}",
     response_model=Transaction
@@ -164,7 +230,6 @@ def get_transaction(
     return transaction
 
 
-# Update a transaction belonging to the authenticated user
 @app.put(
     "/transactions/{transaction_id}",
     response_model=Transaction
@@ -195,7 +260,6 @@ def update_transaction_endpoint(
     return updated_transaction
 
 
-# Delete a transaction belonging to the authenticated user
 @app.delete(
     "/transactions/{transaction_id}",
     response_model=DeleteResponse

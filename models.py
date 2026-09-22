@@ -46,3 +46,13 @@ class Summary(BaseModel):
     total_expenses: float
     balance: float
     transaction_count: int
+
+class CategorySummary(BaseModel):
+    category: str
+    total: float
+
+class MonthlySummary(BaseModel):
+    month: str
+    total_income: float
+    total_expenses: float
+    balance: float

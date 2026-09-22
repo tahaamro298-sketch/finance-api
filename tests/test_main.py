@@ -800,6 +800,7 @@ def test_user_cannot_delete_another_users_transaction():
 
     assert response.status_code == 404
 
+
 def test_empty_transaction_summary():
     register_response = client.post(
         "/register",
@@ -925,6 +926,7 @@ def test_unauthenticated_transaction_summary():
 
     assert response.status_code == 401
 
+
 def test_user_summary_only_includes_own_transactions():
     first_user_response = client.post(
         "/register",
@@ -1020,3 +1022,565 @@ def test_user_summary_only_includes_own_transactions():
         "balance": 5000.0,
         "transaction_count": 1
     }
+
+
+def test_transaction_summary_date_from():
+    register_user("summary_user")
+
+    headers = get_auth_headers("summary_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 1000,
+            "category": "Salary",
+            "description": "Old income",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Salary",
+            "description": "Recent income",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-15"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/summary?date_from=2026-09-10",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "total_income": 500.0,
+        "total_expenses": 0.0,
+        "balance": 500.0,
+        "transaction_count": 1
+    }
+
+
+def test_transaction_summary_date_to():
+    register_user("summary_user")
+
+    headers = get_auth_headers("summary_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 1000,
+            "category": "Salary",
+            "description": "Early income",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-05"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Salary",
+            "description": "Late income",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-20"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/summary?date_to=2026-09-10",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "total_income": 1000.0,
+        "total_expenses": 0.0,
+        "balance": 1000.0,
+        "transaction_count": 1
+    }
+
+
+def test_transaction_summary_date_range():
+    register_user("summary_user")
+
+    headers = get_auth_headers("summary_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 100,
+            "category": "Food",
+            "description": "Before range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-08-31"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Salary",
+            "description": "Inside range",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-15"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 200,
+            "category": "Shopping",
+            "description": "After range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-10-01"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/summary?date_from=2026-09-01&date_to=2026-09-30",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "total_income": 500.0,
+        "total_expenses": 0.0,
+        "balance": 500.0,
+        "transaction_count": 1
+    }
+
+
+def test_category_summary():
+    register_user("category_user")
+
+    headers = get_auth_headers("category_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 100,
+            "category": "Food",
+            "description": "Groceries",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 50,
+            "category": "Food",
+            "description": "Lunch",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-02"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 200,
+            "category": "Transport",
+            "description": "Taxi",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-03"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 5000,
+            "category": "Salary",
+            "description": "Monthly salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/category-summary",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == [
+        {
+            "category": "Transport",
+            "total": 200.0
+        },
+        {
+            "category": "Food",
+            "total": 150.0
+        }
+    ]
+
+
+def test_category_summary_date_range():
+    register_user("category_user")
+
+    headers = get_auth_headers("category_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 100,
+            "category": "Food",
+            "description": "Before range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-08-31"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 300,
+            "category": "Food",
+            "description": "Inside range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-15"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 200,
+            "category": "Transport",
+            "description": "Inside range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-20"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Shopping",
+            "description": "After range",
+            "transaction_type": "expense",
+            "transaction_date": "2026-10-01"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/category-summary?date_from=2026-09-01&date_to=2026-09-30",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == [
+        {
+            "category": "Food",
+            "total": 300.0
+        },
+        {
+            "category": "Transport",
+            "total": 200.0
+        }
+    ]
+
+
+def test_category_summary_only_includes_own_transactions():
+    register_user("category_first")
+    register_user("category_second")
+
+    first_headers = get_auth_headers("category_first")
+    second_headers = get_auth_headers("category_second")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 100,
+            "category": "Food",
+            "description": "First user food",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-01"
+        },
+        headers=first_headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Shopping",
+            "description": "Second user shopping",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-01"
+        },
+        headers=second_headers
+    )
+
+    first_response = client.get(
+        "/transactions/category-summary",
+        headers=first_headers
+    )
+
+    second_response = client.get(
+        "/transactions/category-summary",
+        headers=second_headers
+    )
+
+    assert first_response.json() == [
+        {
+            "category": "Food",
+            "total": 100.0
+        }
+    ]
+
+    assert second_response.json() == [
+        {
+            "category": "Shopping",
+            "total": 500.0
+        }
+    ]
+
+
+def test_monthly_summary():
+    register_user("monthly_user")
+
+    headers = get_auth_headers("monthly_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 3000,
+            "category": "Salary",
+            "description": "September salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 500,
+            "category": "Food",
+            "description": "September food",
+            "transaction_type": "expense",
+            "transaction_date": "2026-09-10"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 4000,
+            "category": "Salary",
+            "description": "October salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-10-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 1000,
+            "category": "Shopping",
+            "description": "October shopping",
+            "transaction_type": "expense",
+            "transaction_date": "2026-10-15"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/monthly-summary",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == [
+        {
+            "month": "2026-09",
+            "total_income": 3000.0,
+            "total_expenses": 500.0,
+            "balance": 2500.0
+        },
+        {
+            "month": "2026-10",
+            "total_income": 4000.0,
+            "total_expenses": 1000.0,
+            "balance": 3000.0
+        }
+    ]
+
+
+def test_monthly_summary_date_range():
+    register_user("monthly_user")
+
+    headers = get_auth_headers("monthly_user")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 2000,
+            "category": "Salary",
+            "description": "August salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-08-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 3000,
+            "category": "Salary",
+            "description": "September salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 4000,
+            "category": "Salary",
+            "description": "October salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-10-01"
+        },
+        headers=headers
+    )
+
+    response = client.get(
+        "/transactions/monthly-summary?date_from=2026-09-01&date_to=2026-09-30",
+        headers=headers
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == [
+        {
+            "month": "2026-09",
+            "total_income": 3000.0,
+            "total_expenses": 0.0,
+            "balance": 3000.0
+        }
+    ]
+
+
+def test_monthly_summary_only_includes_own_transactions():
+    register_user("monthly_first")
+    register_user("monthly_second")
+
+    first_headers = get_auth_headers("monthly_first")
+    second_headers = get_auth_headers("monthly_second")
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 1000,
+            "category": "Salary",
+            "description": "First user salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=first_headers
+    )
+
+    client.post(
+        "/transactions",
+        json={
+            "amount": 5000,
+            "category": "Salary",
+            "description": "Second user salary",
+            "transaction_type": "income",
+            "transaction_date": "2026-09-01"
+        },
+        headers=second_headers
+    )
+
+    first_response = client.get(
+        "/transactions/monthly-summary",
+        headers=first_headers
+    )
+
+    second_response = client.get(
+        "/transactions/monthly-summary",
+        headers=second_headers
+    )
+
+    assert first_response.json() == [
+        {
+            "month": "2026-09",
+            "total_income": 1000.0,
+            "total_expenses": 0.0,
+            "balance": 1000.0
+        }
+    ]
+
+    assert second_response.json() == [
+        {
+            "month": "2026-09",
+            "total_income": 5000.0,
+            "total_expenses": 0.0,
+            "balance": 5000.0
+        }
+    ]
+
+
+def test_report_rejects_invalid_date_range():
+    register_user("report_user")
+
+    headers = get_auth_headers("report_user")
+
+    endpoints = [
+        "/transactions/summary",
+        "/transactions/category-summary",
+        "/transactions/monthly-summary"
+    ]
+
+    for endpoint in endpoints:
+        response = client.get(
+            f"{endpoint}?date_from=2026-09-30&date_to=2026-09-01",
+            headers=headers
+        )
+
+        assert response.status_code == 400
+
+        assert response.json() == {
+            "detail": "date_from cannot be after date_to"
+        }
