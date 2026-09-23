@@ -1,184 +1,355 @@
 # Finance API
 
-A RESTful finance management API built with **Python, FastAPI, SQLite, JWT authentication, Pydantic, and pytest**.
+A production-style finance management REST API built with **Python, FastAPI, PostgreSQL, Docker, JWT authentication, Argon2 password hashing, Pydantic, and pytest**.
 
-The project allows users to create accounts, log in securely, manage their own financial transactions, filter transactions, and view a financial summary.
+The API allows users to register and authenticate securely, manage their own financial transactions, filter and paginate transaction data, and generate financial reports and summaries.
+
+The project is designed as a practical backend portfolio project demonstrating API development, database design, authentication, testing, containerization, configuration management, and security practices.
+
+## Current Status
+
+* FastAPI REST API
+* PostgreSQL database
+* Docker + Docker Compose
+* JWT authentication
+* Argon2 password hashing
+* User-specific authorization
+* CRUD operations
+* Filtering and pagination
+* Financial summaries and reports
+* Database migrations
+* Centralized configuration
+* CORS protection
+* Trusted Host protection
+* HTTP security headers
+* Automated configuration and API tests
+* Git/GitHub workflow
+
+Current automated test suite:
+
+```text
+57 passed
+2 dependency deprecation warnings
+```
+
+---
 
 ## Features
 
-* User registration and login
-* Secure password hashing with Argon2
-* JWT-based authentication
-* Protected transaction endpoints
+### Authentication and authorization
+
+* User registration
+* User login
+* OAuth2 password-form authentication
+* JWT Bearer tokens
+* Argon2 password hashing
+* Protected endpoints
 * User-specific transaction ownership
-* Create, read, update, and delete transactions
+* Users can only access their own transactions
+
+### Transaction management
+
+* Create transactions
+* Retrieve all transactions
+* Retrieve one transaction
+* Update transactions
+* Delete transactions
 * Income and expense transaction types
 * Transaction dates
-* Filter transactions by:
+* Category and description fields
 
-  * Transaction type
-  * Category
-  * Start date
-  * End date
-* Financial summary with:
+### Filtering and pagination
 
-  * Total income
-  * Total expenses
-  * Balance
-  * Transaction count
-* Pydantic request and response validation
-* SQLite database
-* Dependency injection for database connections and authentication
-* Service-layer architecture
-* Automated testing with pytest
-* 28 automated tests
+Transactions can be filtered by:
 
-## Technologies
+* Transaction type
+* Category
+* Start date
+* End date
+* Combined filters
 
-* **Python 3.14**
-* **FastAPI**
-* **Uvicorn**
-* **SQLite**
-* **Pydantic**
-* **pwdlib**
-* **Argon2**
-* **PyJWT**
-* **python-dotenv**
-* **pytest**
-* **HTTPX**
+Pagination supports:
 
-## Project Structure
+* `limit`
+* `offset`
+* Total matching transaction count
 
-```text
-finance-api/
-│
-├── main.py
-├── models.py
-├── database.py
-├── services.py
-├── dependencies.py
-├── auth.py
-├── finance.db
-├── test_finance.db
-├── .env
-├── .gitignore
-├── README.md
-│
-└── tests/
-    └── test_main.py
-```
+### Financial reports
 
-### File responsibilities
+* Total income
+* Total expenses
+* Balance
+* Transaction count
+* Category expense summaries
+* Monthly financial summaries
+* Date-range reports
 
-**`main.py`**
+### Validation and error handling
 
-Contains the FastAPI application and HTTP endpoints.
+* Pydantic request validation
+* Standardized API error responses
+* HTTP error handling
+* Validation error handling
+* Date-range validation
+* Safe resource ownership checks
 
-**`models.py`**
+### Security
 
-Contains Pydantic models used for request validation and API responses.
+* Argon2 password hashing
+* JWT authentication
+* Environment-based secrets
+* Production configuration validation
+* Explicit CORS origins
+* Trusted Host validation
+* Security response headers
+* Sensitive `.env` file excluded from Git
+* Runtime and development dependencies separated
 
-**`database.py`**
+### Testing
 
-Contains SQLite database setup and database operations.
+The project includes automated tests for:
 
-**`services.py`**
+* Authentication
+* Registration
+* Login
+* Authorization
+* CRUD operations
+* Ownership isolation
+* Validation
+* Filtering
+* Pagination
+* Financial summaries
+* Category summaries
+* Monthly summaries
+* Error responses
+* CORS configuration
+* Security headers
+* Trusted Host protection
+* Production configuration rules
+* Database migrations
 
-Contains business logic between the API layer and database layer.
+---
 
-**`dependencies.py`**
+## Technology Stack
 
-Contains reusable FastAPI dependencies such as database connections and the current authenticated user.
+### Backend
 
-**`auth.py`**
+* Python 3.14
+* FastAPI
+* Uvicorn
+* Pydantic
+* Psycopg 3
+* PostgreSQL 18
+* pwdlib
+* Argon2
+* PyJWT
+* python-dotenv
+* python-multipart
 
-Contains password hashing and JWT authentication logic.
+### Testing
 
-**`tests/test_main.py`**
+* pytest
+* HTTPX
 
-Contains automated API tests.
+### Infrastructure
+
+* Docker
+* Docker Compose
+* WSL 2
+
+### Version control
+
+* Git
+* GitHub
+
+---
 
 ## Architecture
 
-The application follows a layered structure:
+The application uses a layered architecture:
 
 ```text
-HTTP Request
-     ↓
+Client
+   |
+   v
 main.py
-     ↓
+   |
+   v
+dependencies.py
+   |
+   +------> Authentication / Current User
+   |
+   v
 services.py
-     ↓
+   |
+   v
 database.py
-     ↓
-SQLite
+   |
+   v
+PostgreSQL
 ```
 
 Supporting components:
 
 ```text
 models.py
-    ↓
-Request / Response validation
+    |
+    +--> Request validation
+    +--> Response models
 
 auth.py
-    ↓
-Password hashing / JWT
+    |
+    +--> Argon2 password hashing
+    +--> JWT creation and decoding
 
-dependencies.py
-    ↓
-Database connection / Current user
+config.py
+    |
+    +--> Environment configuration
+    +--> Production validation
+
+migrations.py
+    |
+    +--> Database schema migrations
+
+tests/
+    |
+    +--> Automated regression tests
 ```
 
-This separation keeps API routes, business logic, authentication, validation, and database operations organized independently.
+### Request flow
 
-## Authentication
+A typical authenticated request follows:
+
+```text
+HTTP Request
+     |
+     v
+Trusted Host validation
+     |
+     v
+CORS middleware
+     |
+     v
+Security headers middleware
+     |
+     v
+FastAPI route
+     |
+     v
+Authentication / dependencies
+     |
+     v
+Pydantic validation
+     |
+     v
+Service layer
+     |
+     v
+Database layer
+     |
+     v
+PostgreSQL
+     |
+     v
+API response
+```
+
+---
+
+## Project Structure
+
+```text
+finance-api/
+|
++-- main.py
++-- models.py
++-- database.py
++-- services.py
++-- dependencies.py
++-- auth.py
++-- migrations.py
++-- config.py
+|
++-- Dockerfile
++-- compose.yml
++-- .dockerignore
++-- requirements.txt
++-- requirements-dev.txt
++-- .env.example
++-- .gitignore
++-- README.md
+|
++-- tests/
+    +-- test_main.py
+    +-- test_migrations.py
+    +-- test_config.py
+```
+
+### File responsibilities
+
+**`main.py`**
+
+Contains the FastAPI application, routes, middleware, and HTTP error handlers.
+
+**`models.py`**
+
+Contains Pydantic request and response models.
+
+**`services.py`**
+
+Contains application/business logic between HTTP routes and the database layer.
+
+**`database.py`**
+
+Contains PostgreSQL connections and database queries.
+
+**`auth.py`**
+
+Contains password hashing, JWT creation, and JWT decoding.
+
+**`dependencies.py`**
+
+Contains reusable FastAPI dependencies such as database connections and the current authenticated user.
+
+**`config.py`**
+
+Loads environment configuration and validates security-sensitive production settings.
+
+**`migrations.py`**
+
+Manages database schema versioning and migrations.
+
+**`tests/test_main.py`**
+
+Contains API-level tests.
+
+**`tests/test_migrations.py`**
+
+Tests database migrations and schema upgrades.
+
+**`tests/test_config.py`**
+
+Tests production configuration validation.
+
+---
+
+# Authentication
 
 The API uses:
 
 * **Argon2** for password hashing
 * **JWT Bearer tokens** for authentication
+* **OAuth2 password-form login**
 
-Passwords are never stored as plain text.
+Passwords are never stored in plain text.
 
-After logging in successfully, the API returns an access token:
-
-```json
-{
-  "access_token": "your-jwt-token",
-  "token_type": "bearer"
-}
-```
-
-Protected endpoints require:
-
-```text
-Authorization: Bearer <token>
-```
-
-Transactions are associated with the authenticated user, so users can only access their own transactions.
-
-## API Endpoints
-
-### Root
-
-```http
-GET /
-```
-
-Returns a simple response confirming that the API is running.
-
----
-
-### Register
+### Registration
 
 ```http
 POST /register
 ```
 
-Creates a new user account.
-
-Example request:
+Example:
 
 ```json
 {
@@ -196,13 +367,11 @@ Example response:
 }
 ```
 
-Returns:
+Response:
 
 ```text
 201 Created
 ```
-
----
 
 ### Login
 
@@ -210,11 +379,7 @@ Returns:
 POST /login
 ```
 
-Authenticates a user and returns a JWT access token.
-
-The endpoint uses OAuth2 password-form data.
-
-Example form data:
+The endpoint accepts OAuth2 password-form data:
 
 ```text
 username=amro
@@ -230,13 +395,21 @@ Example response:
 }
 ```
 
+Protected requests use:
+
+```text
+Authorization: Bearer <token>
+```
+
+JWT tokens expire after a configured period.
+
 ---
 
-## Transactions
+# Transactions API
 
 All transaction endpoints require authentication.
 
-### Create Transaction
+## Create transaction
 
 ```http
 POST /transactions
@@ -268,76 +441,79 @@ Example response:
 }
 ```
 
-Returns:
+Response:
 
 ```text
 201 Created
 ```
 
-### Get All Transactions
+## Get transactions
 
 ```http
 GET /transactions
 ```
 
-Returns all transactions belonging to the authenticated user.
+Returns transactions belonging only to the authenticated user.
 
-Transactions are returned with the newest transaction dates first.
+Transactions are ordered by newest transaction date first.
 
----
+### Pagination
 
-### Filter Transactions
+```http
+GET /transactions?limit=20&offset=0
+```
 
-The transaction list endpoint supports optional query parameters.
+Example response:
 
-#### By transaction type
+```json
+{
+  "items": [],
+  "total": 0,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+The API limits `limit` to a safe range.
+
+### Filter by transaction type
 
 ```http
 GET /transactions?transaction_type=expense
 ```
 
-Possible values:
+Accepted values:
 
 ```text
 income
 expense
 ```
 
-#### By category
+### Filter by category
 
 ```http
 GET /transactions?category=Food
 ```
 
-#### By type and category
-
-```http
-GET /transactions?transaction_type=expense&category=Food
-```
-
-#### From a date
+### Filter by date
 
 ```http
 GET /transactions?date_from=2026-09-01
 ```
 
-#### Up to a date
-
 ```http
 GET /transactions?date_to=2026-09-30
 ```
 
-#### Date range
+### Filter by date range
 
 ```http
 GET /transactions?date_from=2026-09-01&date_to=2026-09-30
 ```
 
-The filters can also be combined.
+Filters can be combined with pagination.
 
----
-
-### Get One Transaction
+## Get one transaction
 
 ```http
 GET /transactions/{transaction_id}
@@ -349,17 +525,15 @@ Example:
 GET /transactions/1
 ```
 
-Returns a single transaction belonging to the authenticated user.
+The endpoint returns the transaction only if it belongs to the authenticated user.
 
-If the transaction does not exist or does not belong to the user:
+Otherwise:
 
 ```text
 404 Not Found
 ```
 
----
-
-### Update Transaction
+## Update transaction
 
 ```http
 PUT /transactions/{transaction_id}
@@ -377,11 +551,7 @@ Example:
 }
 ```
 
-Returns the updated transaction.
-
----
-
-### Delete Transaction
+## Delete transaction
 
 ```http
 DELETE /transactions/{transaction_id}
@@ -403,17 +573,22 @@ Example response:
 
 ---
 
-## Financial Summary
+# Financial Reports
 
-### Get Transaction Summary
+## Transaction summary
 
 ```http
 GET /transactions/summary
 ```
 
-Returns a financial summary for the authenticated user.
+Returns:
 
-Example response:
+* Total income
+* Total expenses
+* Balance
+* Transaction count
+
+Example:
 
 ```json
 {
@@ -424,207 +599,247 @@ Example response:
 }
 ```
 
-The balance is calculated as:
+The balance is:
 
 ```text
 balance = total_income - total_expenses
 ```
 
-The summary is calculated directly from the authenticated user's transactions.
+The report can optionally be restricted to a date range.
 
-For a user with no transactions:
-
-```json
-{
-  "total_income": 0.0,
-  "total_expenses": 0.0,
-  "balance": 0.0,
-  "transaction_count": 0
-}
+```http
+GET /transactions/summary?date_from=2026-09-01&date_to=2026-09-30
 ```
 
-## Validation
+## Category summary
 
-The API uses Pydantic models to validate incoming data.
-
-### Transaction amount
-
-The amount must be greater than zero.
-
-### Transaction type
-
-Only:
-
-```text
-income
-expense
+```http
+GET /transactions/category-summary
 ```
 
-are accepted.
+Provides expense totals grouped by category.
 
-### Transaction date
+Optional date filters are supported.
 
-The date must be provided in a valid date format.
+## Monthly summary
+
+```http
+GET /transactions/monthly-summary
+```
+
+Provides monthly income and expense totals.
+
+Optional date filters are supported.
+
+---
+
+# Validation
+
+The API uses Pydantic models for request validation.
+
+Important validation rules include:
+
+* Username: 3–50 characters
+* Password: 8–128 characters
+* Category: 1–50 characters
+* Description: 1–200 characters
+* Amount: greater than zero
+* Transaction type: `income` or `expense`
+* Transaction date: valid date
+* `date_from` cannot be after `date_to`
+* Pagination values must be within their configured limits
+
+Invalid requests return a standardized validation response.
 
 Example:
 
-```text
-2026-09-19
+```json
+{
+  "error": "validation_error",
+  "message": "Request validation failed",
+  "details": []
+}
 ```
 
-### Username
+---
 
-Username length must be between 3 and 50 characters.
+# Error Handling
 
-### Password
+The API uses standardized error responses.
 
-Password length must be between 8 and 128 characters.
+Examples include:
 
-### Category
+```text
+400 Bad Request
+401 Unauthorized
+403 Forbidden
+404 Not Found
+405 Method Not Allowed
+422 Validation Error
+```
 
-Category must contain between 1 and 50 characters.
+Example:
 
-### Description
+```json
+{
+  "error": "not_found",
+  "message": "Transaction not found"
+}
+```
 
-Description must contain between 1 and 200 characters.
+This keeps error responses predictable for frontend clients and other API consumers.
 
-Invalid input is automatically rejected by FastAPI/Pydantic with a validation response.
+---
 
-## Database
+# Database
 
-The project uses **SQLite** for persistent data storage.
+The application uses **PostgreSQL 18**.
 
-Two main tables are used:
+Main tables:
 
-### Users
+## Users
 
 ```text
 users
-├── id
-├── username
-└── hashed_password
++-- id
++-- username
++-- hashed_password
 ```
 
-### Transactions
+## Transactions
 
 ```text
 transactions
-├── id
-├── user_id
-├── amount
-├── category
-├── description
-├── transaction_type
-└── transaction_date
++-- id
++-- user_id
++-- amount
++-- category
++-- description
++-- transaction_type
++-- transaction_date
 ```
 
-Each transaction contains a `user_id` foreign key connecting it to its owner.
+Each transaction belongs to a user through `user_id`.
 
-SQLite foreign-key enforcement is enabled by the application.
+Database schema changes are managed using the migration system in `migrations.py`.
 
-## Financial Summary SQL
-
-The financial summary is calculated using SQL aggregation instead of loading every transaction into Python.
-
-The database calculates:
-
-* Total income
-* Total expenses
-* Transaction count
-
-Python then calculates:
+The project also maintains a separate PostgreSQL database for automated tests.
 
 ```text
-balance = total_income - total_expenses
+Application database
+    finance
+
+Test database
+    finance_test
 ```
 
-This keeps data aggregation close to the database layer.
+This prevents the automated tests from modifying the normal application database.
 
-## Dependency Injection
+---
 
-FastAPI dependency injection is used for reusable components.
+# Docker
 
-For example:
+The project runs as a multi-container backend using Docker Compose.
 
-```python
-Depends(get_db)
-```
-
-provides a database connection for an endpoint.
-
-The current authenticated user is also provided through:
-
-```python
-Depends(get_current_user)
-```
-
-Database connections are automatically closed after the request finishes.
-
-## Testing
-
-The project uses **pytest** and FastAPI's testing tools.
-
-The test suite currently contains:
+Architecture:
 
 ```text
-28 tests
+Docker Compose
+|
++-- api
+|   +-- FastAPI
+|   +-- Uvicorn
+|
++-- db
+    +-- PostgreSQL 18
 ```
 
-The tests cover:
-
-* Root endpoint
-* User registration
-* Duplicate usernames
-* Password validation
-* Login
-* Incorrect passwords
-* Authentication requirements
-* Transaction validation
-* Creating transactions
-* Retrieving transactions
-* Updating transactions
-* Deleting transactions
-* Transaction type filtering
-* Category filtering
-* Combined filtering
-* Date filtering
-* Transaction ownership
-* Financial summary
-* Empty financial summaries
-* Summary authentication
-* Summary user isolation
-
-Run all tests with:
-
-```powershell
-python -m pytest
-```
-
-Current result:
+A persistent Docker volume is used for PostgreSQL data:
 
 ```text
-28 passed
+postgres_data
 ```
 
-Two dependency deprecation warnings may appear from FastAPI/Starlette/AnyIO's testing dependencies. They do not represent failures in the application tests.
+This allows database data to survive container recreation.
 
-## Running the Project
+---
 
-### 1. Activate the virtual environment
+# Quick Start
 
-PowerShell:
+The recommended way to run the project is with Docker Compose.
+
+## Prerequisites
+
+Install:
+
+* Docker Desktop
+* Git
+
+Verify Docker:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+docker --version
+docker compose version
 ```
 
-### 2. Start the API
+## 1. Clone the repository
 
 ```powershell
-python -m uvicorn main:app --reload
+git clone https://github.com/tahaamro298-sketch/finance-api.git
+cd finance-api
 ```
 
-### 3. Open the API documentation
+## 2. Create the environment file
+
+Copy the example configuration:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `.env` and replace the placeholder values with your own secrets and local configuration.
+
+Do not commit `.env`.
+
+## 3. Start the application
+
+```powershell
+docker compose up --build -d
+```
+
+This starts:
+
+```text
+FastAPI
+    +
+PostgreSQL
+```
+
+Check the containers:
+
+```powershell
+docker compose ps
+```
+
+The database should show:
+
+```text
+healthy
+```
+
+and the API should show:
+
+```text
+Up
+```
+
+## 4. Open the API
+
+API:
+
+```text
+http://127.0.0.1:8000
+```
 
 Swagger UI:
 
@@ -632,25 +847,355 @@ Swagger UI:
 http://127.0.0.1:8000/docs
 ```
 
-FastAPI also provides OpenAPI documentation automatically.
+ReDoc:
 
-## Environment Variables
+```text
+http://127.0.0.1:8000/redoc
+```
 
-Sensitive configuration is stored in `.env`.
+## 5. Run the tests
+
+The automated tests run against the dedicated test database.
+
+From the project environment:
+
+```powershell
+python -m pytest
+```
+
+Expected result:
+
+```text
+57 passed
+```
+
+## 6. View logs
+
+API logs:
+
+```powershell
+docker compose logs api
+```
+
+Database logs:
+
+```powershell
+docker compose logs db
+```
+
+Follow API logs live:
+
+```powershell
+docker compose logs -f api
+```
+
+## 7. Stop the application
+
+```powershell
+docker compose down
+```
+
+This stops the containers while keeping the PostgreSQL volume.
+
+To remove the PostgreSQL volume and its stored data, use:
+
+```powershell
+docker compose down -v
+```
+
+Use the `-v` option only when you intentionally want to reset the database.
+
+---
+
+# Local Development
+
+Docker is the recommended reproducible environment.
+
+For development without Docker, activate the Python virtual environment:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Install development dependencies:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+Make sure `.env` points to a locally running PostgreSQL instance.
+
+Start FastAPI:
+
+```powershell
+python -m uvicorn main:app --reload
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# API Documentation
+
+FastAPI automatically generates OpenAPI documentation.
+
+Swagger UI:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Alternative ReDoc documentation:
+
+```text
+http://127.0.0.1:8000/redoc
+```
+
+The generated documentation allows developers to inspect and test the API interactively.
+
+---
+
+# API Endpoint Map
+
+| Method   | Endpoint                         | Authentication | Purpose                                 |
+| -------- | -------------------------------- | -------------- | --------------------------------------- |
+| `GET`    | `/`                              | No             | Health/basic response                   |
+| `POST`   | `/register`                      | No             | Create a user account                   |
+| `POST`   | `/login`                         | No             | Authenticate and receive JWT            |
+| `POST`   | `/transactions`                  | Yes            | Create a transaction                    |
+| `GET`    | `/transactions`                  | Yes            | List, filter, and paginate transactions |
+| `GET`    | `/transactions/{transaction_id}` | Yes            | Retrieve one owned transaction          |
+| `PUT`    | `/transactions/{transaction_id}` | Yes            | Update an owned transaction             |
+| `DELETE` | `/transactions/{transaction_id}` | Yes            | Delete an owned transaction             |
+| `GET`    | `/transactions/summary`          | Yes            | Financial summary                       |
+| `GET`    | `/transactions/category-summary` | Yes            | Expense totals by category              |
+| `GET`    | `/transactions/monthly-summary`  | Yes            | Monthly income/expense report           |
+
+---
+
+# Architecture at a Glance
+
+```text
+                    +-----------------+
+                    |     Client      |
+                    +--------+--------+
+                             |
+                             v
+                    +-----------------+
+                    |    FastAPI      |
+                    |    main.py      |
+                    +--------+--------+
+                             |
+                    +--------v--------+
+                    |  Dependencies   |
+                    | Auth / Database |
+                    +--------+--------+
+                             |
+                    +--------v--------+
+                    |    Services     |
+                    | Business Logic  |
+                    +--------+--------+
+                             |
+                    +--------v--------+
+                    |    Database     |
+                    |  PostgreSQL 18  |
+                    +--------+--------+
+                             |
+                    +--------v--------+
+                    | Docker Volume   |
+                    | postgres_data   |
+                    +-----------------+
+
+Supporting systems:
+- config.py       -> environment and production configuration
+- auth.py         -> Argon2 + JWT
+- migrations.py   -> schema migrations
+- tests/          -> automated regression tests
+```
+
+---
+
+# Configuration
+
+The project uses environment variables for configuration.
 
 Example:
 
 ```env
-SECRET_KEY=your-secret-key
+APP_ENV=development
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+SECRET_KEY=replace_with_a_secure_secret
+
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=finance
+DATABASE_USER=finance_app
+DATABASE_PASSWORD=replace_with_database_password
 ```
 
-The `.env` file should not be committed to Git.
+The repository includes:
 
-It is included in `.gitignore`.
+```text
+.env.example
+```
 
-## Git
+but the real:
 
-The project is managed using Git and hosted on GitHub.
+```text
+.env
+```
+
+must remain private.
+
+### Production configuration
+
+When:
+
+```env
+APP_ENV=production
+```
+
+the application performs additional validation.
+
+Production configuration must include:
+
+* A sufficiently strong `SECRET_KEY`
+* Explicit `ALLOWED_HOSTS`
+* Explicit `CORS_ORIGINS`
+* No wildcard `*` CORS configuration
+
+The application is designed to fail fast when security-sensitive production configuration is invalid.
+
+---
+
+# Security
+
+The project includes several production-oriented protections.
+
+### Authentication
+
+* Argon2 password hashing
+* JWT authentication
+* User-specific authorization
+
+### Browser/API security
+
+* Explicit CORS origins
+* Trusted Host validation
+* `X-Content-Type-Options: nosniff`
+* `X-Frame-Options: DENY`
+* `Referrer-Policy: no-referrer`
+* `Permissions-Policy`
+
+### Secret management
+
+* Secrets stored in environment variables
+* `.env` excluded from Git
+* `.env.example` contains placeholders only
+* Production configuration validation
+
+### Database security
+
+The application uses a dedicated PostgreSQL role rather than relying on the PostgreSQL installation's administrative account.
+
+---
+
+# Testing
+
+The project uses pytest for automated testing.
+
+Run the full suite:
+
+```powershell
+python -m pytest
+```
+
+Current test result:
+
+```text
+57 passed
+2 dependency deprecation warnings
+```
+
+The test suite covers:
+
+* Root endpoint
+* Registration
+* Login
+* Password validation
+* Authentication
+* Authorization
+* CRUD
+* Ownership isolation
+* Filtering
+* Pagination
+* Financial summaries
+* Category summaries
+* Monthly summaries
+* Date validation
+* Error response formats
+* Security headers
+* CORS behavior
+* Trusted Host behavior
+* Production configuration
+* Database migrations
+
+The project uses a dedicated test database:
+
+```text
+finance_test
+```
+
+so tests are isolated from the main application database.
+
+---
+
+# Development Workflow
+
+Typical development workflow:
+
+```powershell
+git status
+```
+
+Make changes and run:
+
+```powershell
+python -m pytest
+```
+
+Check whitespace errors:
+
+```powershell
+git diff --check
+```
+
+Inspect changes:
+
+```powershell
+git diff
+```
+
+Commit:
+
+```powershell
+git add .
+git commit -m "Describe the change"
+```
+
+Push:
+
+```powershell
+git push
+```
+
+The project is maintained using Git and hosted on GitHub.
 
 Repository:
 
@@ -658,102 +1203,111 @@ Repository:
 https://github.com/tahaamro298-sketch/finance-api
 ```
 
-Typical workflow:
+---
 
-```powershell
-git status
-git add .
-git commit -m "Add financial summary"
-git push origin main
-```
+# Project Development Progress
 
-## API Development Flow
+The project was built incrementally.
 
-A typical request follows this pattern:
+Major milestones include:
 
 ```text
-Client
-  ↓
-FastAPI route
-  ↓
-Authentication / dependencies
-  ↓
-Pydantic validation
-  ↓
-Service layer
-  ↓
-Database layer
-  ↓
-SQLite
-  ↓
-Service layer
-  ↓
-API response
+FastAPI foundation
+      |
+      v
+CRUD
+      |
+      v
+Persistent database
+      |
+      v
+Authentication
+      |
+      v
+Authorization
+      |
+      v
+Service-layer architecture
+      |
+      v
+Financial reports
+      |
+      v
+Pagination and filtering
+      |
+      v
+Standardized errors
+      |
+      v
+Database migrations
+      |
+      v
+PostgreSQL
+      |
+      v
+Docker
+      |
+      v
+Production configuration
+      |
+      v
+Security hardening
+      |
+      v
+Automated regression tests
 ```
 
-For example, a summary request:
+The backend is now ready for the next stages of portfolio development: deployment, CI/CD, and a frontend dashboard.
 
-```text
-GET /transactions/summary
-        ↓
-Verify JWT
-        ↓
-Identify current user
-        ↓
-Call summary service
-        ↓
-Run SQL aggregation
-        ↓
-Calculate balance
-        ↓
-Return Summary response
-```
+---
 
-## Future Improvements
+# Future Development
 
-Possible future features include:
+Planned next stages include:
 
-* Category spending summaries
-* Monthly financial reports
-* Date-range summaries
-* Budget management
-* Recurring transactions
-* Pagination
-* More advanced search
-* PostgreSQL support
-* Docker deployment
 * Production deployment
-* API rate limiting
-* Logging and monitoring
 * CI/CD with GitHub Actions
-* Frontend dashboard
+* Frontend application
+* API/frontend integration
+* Financial dashboard
+* Charts and visual reporting
+* Responsive UI
+* Final portfolio polish
 
-## Learning Goals
+---
 
-This project is designed as a practical backend portfolio project and focuses on learning how to build and maintain a real API.
+# Learning Goals
 
-The project has covered:
+This project is being developed as a practical backend portfolio project.
+
+The main skills demonstrated are:
 
 * Python backend development
-* REST APIs
+* REST API design
 * FastAPI
-* HTTP methods
 * Pydantic validation
-* SQLite and SQL
+* PostgreSQL and SQL
 * CRUD operations
-* Authentication
-* Password hashing
+* Authentication and authorization
 * JWT
-* Authorization
+* Argon2
 * Dependency injection
 * Service-layer architecture
+* Database migrations
+* Pagination and filtering
+* SQL aggregation
 * Automated testing
 * Git and GitHub
-* SQL aggregation
-* Financial data processing
+* Docker
+* Docker Compose
+* Environment-based configuration
+* API security
+* Production-oriented development
 
-## Author
+---
+
+# Author
 
 **Amro Taha**
 
-Built as a practical backend development and portfolio project.
+This project was built as a practical backend development and portfolio project.
