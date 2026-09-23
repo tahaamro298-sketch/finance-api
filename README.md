@@ -1,5 +1,7 @@
 # Finance API
 
+[![CI](https://github.com/tahaamro298-sketch/finance-api/actions/workflows/ci.yml/badge.svg)](https://github.com/tahaamro298-sketch/finance-api/actions/workflows/ci.yml)
+
 A production-style finance management REST API built with **Python, FastAPI, PostgreSQL, Docker, Docker Compose, JWT authentication, Argon2 password hashing, Pydantic, and pytest**.
 
 The API allows users to register and authenticate securely, manage their own financial transactions, filter and paginate transaction data, and generate financial reports and summaries.
