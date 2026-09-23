@@ -1,10 +1,37 @@
 # Finance API
 
-A production-style finance management REST API built with **Python, FastAPI, PostgreSQL, Docker, JWT authentication, Argon2 password hashing, Pydantic, and pytest**.
+A production-style finance management REST API built with **Python, FastAPI, PostgreSQL, Docker, Docker Compose, JWT authentication, Argon2 password hashing, Pydantic, and pytest**.
 
 The API allows users to register and authenticate securely, manage their own financial transactions, filter and paginate transaction data, and generate financial reports and summaries.
 
-The project is designed as a practical backend portfolio project demonstrating API development, database design, authentication, testing, containerization, configuration management, and security practices.
+The project is designed as a practical backend portfolio project demonstrating API development, database design, authentication, testing, containerization, configuration management, deployment, and security practices.
+
+## Live Demo
+
+The Finance API is publicly deployed and accessible through Render.
+
+### API
+
+https://finance-api-amro.onrender.com
+
+### Swagger UI
+
+https://finance-api-amro.onrender.com/docs
+
+### ReDoc
+
+https://finance-api-amro.onrender.com/redoc
+
+The deployed API uses:
+
+* FastAPI
+* Docker
+* PostgreSQL
+* JWT authentication
+* HTTPS
+* Render
+
+---
 
 ## Current Status
 
@@ -24,6 +51,9 @@ The project is designed as a practical backend portfolio project demonstrating A
 * HTTP security headers
 * Automated configuration and API tests
 * Git/GitHub workflow
+* Publicly deployed API
+* HTTPS-enabled production environment
+* Hosted PostgreSQL database
 
 Current automated test suite:
 
@@ -155,7 +185,8 @@ The project includes automated tests for:
 
 * Docker
 * Docker Compose
-* WSL 2
+* Render
+* PostgreSQL
 
 ### Version control
 
@@ -297,7 +328,7 @@ Contains Pydantic request and response models.
 
 **`services.py`**
 
-Contains application/business logic between HTTP routes and the database layer.
+Contains application and business logic between HTTP routes and the database layer.
 
 **`database.py`**
 
@@ -474,8 +505,6 @@ Example response:
 }
 ```
 
-The API limits `limit` to a safe range.
-
 ### Filter by transaction type
 
 ```http
@@ -605,7 +634,7 @@ The balance is:
 balance = total_income - total_expenses
 ```
 
-The report can optionally be restricted to a date range.
+The report can optionally be restricted to a date range:
 
 ```http
 GET /transactions/summary?date_from=2026-09-01&date_to=2026-09-30
@@ -764,9 +793,87 @@ This allows database data to survive container recreation.
 
 ---
 
+# Deployment
+
+The API is deployed using **Render** and uses the same Dockerfile used for local development.
+
+### Deployment architecture
+
+```text
+GitHub
+   |
+   v
+Render Web Service
+   |
+   +----------------------+
+   |                      |
+   v                      v
+Docker Container      Render PostgreSQL
+   |
+   v
+FastAPI
+```
+
+### Production request flow
+
+```text
+Internet
+   |
+   v
+HTTPS
+   |
+   v
+Render
+   |
+   v
+FastAPI
+   |
+   +--> JWT Authentication
+   |
+   +--> Business Logic
+   |
+   v
+PostgreSQL
+```
+
+### Production configuration
+
+The deployed application uses environment variables for:
+
+* Application environment
+* CORS origins
+* Allowed hosts
+* JWT secret
+* PostgreSQL host
+* PostgreSQL port
+* PostgreSQL database
+* PostgreSQL user
+* PostgreSQL password
+* Render-provided service port
+
+Sensitive configuration is not stored in the Git repository.
+
+### Production verification
+
+The deployment was verified by:
+
+* Opening the live API
+* Opening Swagger UI
+* Registering a user
+* Logging in
+* Authenticating with JWT
+* Creating a transaction
+* Retrieving transactions
+* Retrieving the financial summary
+* Connecting successfully to hosted PostgreSQL
+
+New commits to the `main` branch can trigger automatic Render deployments.
+
+---
+
 # Quick Start
 
-The recommended way to run the project is with Docker Compose.
+The recommended way to run the project locally is with Docker Compose.
 
 ## Prerequisites
 
@@ -805,14 +912,6 @@ Do not commit `.env`.
 
 ```powershell
 docker compose up --build -d
-```
-
-This starts:
-
-```text
-FastAPI
-    +
-PostgreSQL
 ```
 
 Check the containers:
@@ -855,8 +954,6 @@ http://127.0.0.1:8000/redoc
 
 ## 5. Run the tests
 
-The automated tests run against the dedicated test database.
-
 From the project environment:
 
 ```powershell
@@ -897,7 +994,7 @@ docker compose down
 
 This stops the containers while keeping the PostgreSQL volume.
 
-To remove the PostgreSQL volume and its stored data, use:
+To remove the PostgreSQL volume and its stored data:
 
 ```powershell
 docker compose down -v
@@ -949,10 +1046,22 @@ Swagger UI:
 http://127.0.0.1:8000/docs
 ```
 
+Production Swagger UI:
+
+```text
+https://finance-api-amro.onrender.com/docs
+```
+
 Alternative ReDoc documentation:
 
 ```text
 http://127.0.0.1:8000/redoc
+```
+
+Production ReDoc:
+
+```text
+https://finance-api-amro.onrender.com/redoc
 ```
 
 The generated documentation allows developers to inspect and test the API interactively.
@@ -1006,15 +1115,15 @@ The generated documentation allows developers to inspect and test the API intera
                     +--------+--------+
                              |
                     +--------v--------+
-                    | Docker Volume   |
-                    | postgres_data   |
+                    | Docker / Render |
                     +-----------------+
 
 Supporting systems:
-- config.py       -> environment and production configuration
+
+- config.py       -> Environment and production configuration
 - auth.py         -> Argon2 + JWT
-- migrations.py   -> schema migrations
-- tests/          -> automated regression tests
+- migrations.py   -> Schema migrations
+- tests/          -> Automated regression tests
 ```
 
 ---
@@ -1072,6 +1181,8 @@ Production configuration must include:
 
 The application is designed to fail fast when security-sensitive production configuration is invalid.
 
+When running on Render, the application also reads Render's service hostname automatically for trusted-host validation.
+
 ---
 
 # Security
@@ -1099,6 +1210,7 @@ The project includes several production-oriented protections.
 * `.env` excluded from Git
 * `.env.example` contains placeholders only
 * Production configuration validation
+* Render environment variables used for deployed secrets
 
 ### Database security
 
@@ -1255,9 +1367,13 @@ Security hardening
       |
       v
 Automated regression tests
+      |
+      v
+API documentation
+      |
+      v
+Public deployment
 ```
-
-The backend is now ready for the next stages of portfolio development: deployment, CI/CD, and a frontend dashboard.
 
 ---
 
@@ -1265,7 +1381,6 @@ The backend is now ready for the next stages of portfolio development: deploymen
 
 Planned next stages include:
 
-* Production deployment
 * CI/CD with GitHub Actions
 * Frontend application
 * API/frontend integration
@@ -1273,12 +1388,14 @@ Planned next stages include:
 * Charts and visual reporting
 * Responsive UI
 * Final portfolio polish
+* Production monitoring improvements
+* More advanced deployment infrastructure
 
 ---
 
 # Learning Goals
 
-This project is being developed as a practical backend portfolio project.
+This project was built as a practical backend portfolio project.
 
 The main skills demonstrated are:
 
@@ -1300,6 +1417,7 @@ The main skills demonstrated are:
 * Git and GitHub
 * Docker
 * Docker Compose
+* Render deployment
 * Environment-based configuration
 * API security
 * Production-oriented development
