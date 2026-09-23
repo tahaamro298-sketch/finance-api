@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="Finance - a modern personal finance dashboard."
+    />
+
+    <title>Finance Dashboard</title>
+  </head>
+
+  <body>
+    <header class="navbar">
+      <a class="logo" href="#">Finance</a>
+
+      <nav class="nav-links">
+        <a href="#overview">Overview</a>
+        <a href="#transactions">Transactions</a>
+        <a href="#reports">Reports</a>
+      </nav>
+
+      <button class="logout-button" type="button">Logout</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-content">
+          <p class="eyebrow">PERSONAL FINANCE</p>
+
+          <h1>
+            Understand your money.
+            <span>Control your future.</span>
+          </h1>
+
+          <p class="hero-text">
+            Track your income, expenses, and financial progress in one clear
+            dashboard.
+          </p>
+        </div>
+      </section>
+
+      <section class="dashboard-section" id="overview">
+        <div class="section-heading">
+          <p class="eyebrow">OVERVIEW</p>
+          <h2>Your financial overview</h2>
+        </div>
+
+        <div class="summary-grid">
+          <article class="summary-card">
+            <p>Total Balance</p>
+            <h3>€2,300.00</h3>
+            <span>Current balance</span>
+          </article>
+
+          <article class="summary-card">
+            <p>Total Income</p>
+            <h3>€3,000.00</h3>
+            <span>Money received</span>
+          </article>
+
+          <article class="summary-card">
+            <p>Total Expenses</p>
+            <h3>€700.00</h3>
+            <span>Money spent</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="dashboard-section" id="transactions">
+        <div class="section-heading">
+          <p class="eyebrow">ACTIVITY</p>
+          <h2>Recent transactions</h2>
+        </div>
+
+        <div class="transactions-card">
+          <div class="transaction-row">
+            <div>
+              <h3>Salary</h3>
+              <p>Income</p>
+            </div>
+
+            <strong>+€1,500.00</strong>
+          </div>
+
+          <div class="transaction-row">
+            <div>
+              <h3>Food</h3>
+              <p>Expense</p>
+            </div>
+
+            <strong>-€50.00</strong>
+          </div>
+
+          <div class="transaction-row">
+            <div>
+              <h3>Transport</h3>
+              <p>Expense</p>
+            </div>
+
+            <strong>-€30.00</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-section" id="reports">
+        <div class="section-heading">
+          <p class="eyebrow">REPORTS</p>
+          <h2>Monthly financial overview</h2>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <p class="chart-label">MONTHLY ACTIVITY</p>
+              <h3>Income vs Expenses</h3>
+            </div>
+
+            <span>2026</span>
+          </div>
+
+          <div class="chart">
+            <div class="chart-y-axis">
+              <span>€4k</span>
+              <span>€3k</span>
+              <span>€2k</span>
+              <span>€1k</span>
+              <span>€0</span>
+            </div>
+
+            <div class="chart-area">
+              <div class="chart-grid-line"></div>
+              <div class="chart-grid-line"></div>
+              <div class="chart-grid-line"></div>
+              <div class="chart-grid-line"></div>
+
+              <div class="bars">
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 75%"></div>
+                  <div class="bar expense-bar" style="height: 25%"></div>
+                  <span>Jan</span>
+                </div>
+
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 60%"></div>
+                  <div class="bar expense-bar" style="height: 35%"></div>
+                  <span>Feb</span>
+                </div>
+
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 85%"></div>
+                  <div class="bar expense-bar" style="height: 30%"></div>
+                  <span>Mar</span>
+                </div>
+
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 70%"></div>
+                  <div class="bar expense-bar" style="height: 45%"></div>
+                  <span>Apr</span>
+                </div>
+
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 90%"></div>
+                  <div class="bar expense-bar" style="height: 35%"></div>
+                  <span>May</span>
+                </div>
+
+                <div class="bar-group">
+                  <div class="bar income-bar" style="height: 78%"></div>
+                  <div class="bar expense-bar" style="height: 40%"></div>
+                  <span>Jun</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-legend">
+            <span>
+              <i class="legend-income"></i>
+              Income
+            </span>
+
+            <span>
+              <i class="legend-expense"></i>
+              Expenses
+            </span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Finance Dashboard</p>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
