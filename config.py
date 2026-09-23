@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 
@@ -47,6 +46,18 @@ def load_settings():
         for host in allowed_hosts_raw.split(",")
         if host.strip()
     ]
+
+    # Render provides the service's actual public hostname.
+    # Add it automatically when running on Render.
+    render_external_hostname = os.getenv(
+        "RENDER_EXTERNAL_HOSTNAME"
+    )
+
+    if (
+        render_external_hostname
+        and render_external_hostname not in allowed_hosts
+    ):
+        allowed_hosts.append(render_external_hostname)
 
     # FastAPI TestClient uses "testserver".
     # Allow it automatically only in development.
